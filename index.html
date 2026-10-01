@@ -860,6 +860,11 @@
         return wallGroup;
     }
 
+    // 🏠 建物の拡大率（旧：0.85）。ここの数字だけで建物の大きさを調整できる
+    const OLD_HOUSE_SCALE = 0.85;
+    const HOUSE_SCALE = 1.2;
+    const ROAD_WORLD_W = 5.0 * OLD_HOUSE_SCALE; // 道の実寸幅（今のまま）
+
     function createHouse() {
         const house = new THREE.Group();
 
@@ -1190,13 +1195,16 @@
         lawn.position.set(0, -0.02, 1);
         house.add(lawn);
 
-        const road = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 16.5), new THREE.MeshPhongMaterial({ color: 0x8a7a8c }));
+        // 道の幅は拡大前と同じ実寸（5.0 × 旧スケール0.85 = 4.25m）を保つ。塀（門柱）の内側の間隔も道の幅に合わせる
+        const ROAD_W = ROAD_WORLD_W / HOUSE_SCALE;
+        const GATE_X = ROAD_W / 2 + 0.45; // 門柱の中心（柱幅0.9の半分を足して、内側の間隔＝道幅にする）
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W, 16.5), new THREE.MeshPhongMaterial({ color: 0x8a7a8c }));
         road.rotation.x = -Math.PI / 2;
         road.position.set(0, -0.01, 11.75); // z=3.5〜20.0（芝生の端＝塀の外まで）
         house.add(road);
 
         [-1, 1].forEach(s => {
-            const x = s * 4.6;
+            const x = s * GATE_X;
             box(house, 0.9, 3.0, 0.9, wallMat, x, 1.5, 17);
             box(house, 1.1, 0.25, 1.1, woodTrimMat, x, 3.1, 17);
             
@@ -1387,8 +1395,11 @@
             house.add(shrub);
         });
 
-        house.position.set(0, 0, -6.5);
-        house.scale.set(0.85, 0.85, 0.85);
+        // 建物全体を同じ比率で拡大（マネキンは別グループなので大きさは変わらない）
+        // 玄関ドアの実際の位置（マネキンとの距離）は拡大前と同じになるように、家の原点を調整する
+        const DOOR_Z_WORLD = -6.5 + 3.03 * OLD_HOUSE_SCALE;
+        house.position.set(0, 0, DOOR_Z_WORLD - 3.03 * HOUSE_SCALE);
+        house.scale.set(HOUSE_SCALE, HOUSE_SCALE, HOUSE_SCALE);
 
         return house;
     }
