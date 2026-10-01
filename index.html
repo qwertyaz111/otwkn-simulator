@@ -150,7 +150,7 @@
                 <div class="section-header"><strong>A</strong></div>
                 <div class="input-row">
                     <div class="input-item"><span class="hint">名前</span><input type="text" class="name-input" placeholder="名前A" oninput="updateScene()"></div>
-                    <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male">男</option><option value="female" selected>女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option><option value="mouse">ネズミ</option><option value="emperor">コウテイペンギン</option><option value="bonaparte">ボナパルト</option></select></div>
+                    <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male">男</option><option value="female" selected>女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option></select></div>
                 </div>
                 <div class="input-row">
                     <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" class="height-input" value="158.0" step="0.1" oninput="updateScene()"></div>
@@ -163,7 +163,7 @@
                 <div class="section-header"><strong>B</strong></div>
                 <div class="input-row">
                     <div class="input-item"><span class="hint">名前</span><input type="text" class="name-input" placeholder="名前B" oninput="updateScene()"></div>
-                    <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male" selected>男</option><option value="female">女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option><option value="mouse">ネズミ</option><option value="emperor">コウテイペンギン</option><option value="bonaparte">ボナパルト</option></select></div>
+                    <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male" selected>男</option><option value="female">女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option></select></div>
                 </div>
                 <div class="input-row">
                     <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" class="height-input" value="171.5" step="0.1" oninput="updateScene()"></div>
@@ -199,11 +199,6 @@
     let walkGroup, houseGroup;
     let rotation = { x: 0, y: 0 }, camDist = 4, targetCamDist = 4, isDragging = false, previousTouch = null;
     let initialPinchDist = null;
-
-    // 🏠 建物全体の拡大率（元は0.85）。マネキンの大きさには影響しない
-    const HOUSE_SCALE = 1.25;
-    // 建物（拡大前）の最も高い屋根の先端＝左塔の円錐屋根の頂点の高さ。ボナパルトの身長算出に使用
-    const BUILDING_HEIGHT = 12.6;
 
     function makeTex(canvas) {
         const t = new THREE.CanvasTexture(canvas);
@@ -1322,10 +1317,8 @@
             house.add(shrub);
         });
 
-        // 建物の最前部（local z=5.7）の位置が元（拡大率0.85・z=-6.5）と同じになるように後ろへずらす（マネキンと重ならないように）
-        const FRONT_LOCAL_Z = 5.7;
-        house.position.set(0, 0, (-6.5 + 0.85 * FRONT_LOCAL_Z) - HOUSE_SCALE * FRONT_LOCAL_Z);
-        house.scale.set(HOUSE_SCALE, HOUSE_SCALE, HOUSE_SCALE);
+        house.position.set(0, 0, -6.5);
+        house.scale.set(0.85, 0.85, 0.85);
 
         return house;
     }
@@ -1388,7 +1381,7 @@
             <div class="section-header"><strong>${charLabel}</strong></div>
             <div class="input-row">
                 <div class="input-item"><span class="hint">名前</span><input type="text" class="name-input" placeholder="名前${charLabel}" oninput="updateScene()"></div>
-                <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male">男</option><option value="female">女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option><option value="mouse">ネズミ</option><option value="emperor">コウテイペンギン</option><option value="bonaparte">ボナパルト</option></select></div>
+                <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male">男</option><option value="female">女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option></select></div>
             </div>
             <div class="input-row">
                 <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" class="height-input" value="165.0" step="0.1" oninput="updateScene()"></div>
@@ -1411,14 +1404,7 @@
         }
     }
 
-    const FIXED_HEIGHTS = {
-        shoebill: 120.0,
-        pygmy: 80.0,
-        mouse: 6.0,
-        emperor: 115.0,
-        // ボナパルト：建物（拡大後）の高さの8割
-        bonaparte: Math.round(BUILDING_HEIGHT * HOUSE_SCALE * 0.8 * 100 * 10) / 10
-    };
+    const FIXED_HEIGHTS = { shoebill: 120.0, pygmy: 80.0 };
 
     function createAnimalMannequin(color, heightCm, kind, name, index) {
         const group = new THREE.Group();
@@ -1466,89 +1452,6 @@
                 group.add(eye);
             });
             width = h * 0.32;
-        } else if (kind === 'mouse') {
-            // 🐭 ネズミ
-            const pinkMat = new THREE.MeshPhongMaterial({ color: 0xf2b6b6 });
-            ell(h * 0.33, h * 0.3, h * 0.55, bodyMat, 0, h * 0.42, 0);
-            ell(h * 0.24, h * 0.24, h * 0.3, bodyMat, 0, h * 0.5, h * 0.78);
-            ell(h * 0.1, h * 0.09, h * 0.14, bodyMat, 0, h * 0.42, h * 1.0);
-            const nose = new THREE.Mesh(new THREE.SphereGeometry(h * 0.045, 10, 10), pinkMat);
-            nose.position.set(0, h * 0.43, h * 1.13);
-            group.add(nose);
-            [-1, 1].forEach(side => {
-                ell(h * 0.15, h * 0.19, h * 0.03, bodyMat, side * h * 0.18, h * 0.8, h * 0.66);
-                ell(h * 0.1, h * 0.13, h * 0.03, pinkMat, side * h * 0.18, h * 0.8, h * 0.685);
-                const eye = new THREE.Mesh(new THREE.SphereGeometry(h * 0.04, 10, 10), eyeMat);
-                eye.position.set(side * h * 0.14, h * 0.56, h * 0.99);
-                group.add(eye);
-            });
-            [-1, 1].forEach(sx => [-1, 1].forEach(sz => {
-                cylM(h * 0.05, h * 0.2, bodyMat, sx * h * 0.18, h * 0.1, sz * h * 0.3);
-            }));
-            const mouseTail = new THREE.Mesh(new THREE.CylinderGeometry(h * 0.02, h * 0.035, h * 1.2, 8), pinkMat);
-            mouseTail.rotation.x = -Math.PI / 2 - 0.25;
-            mouseTail.position.set(0, h * 0.3, -h * 1.1);
-            group.add(mouseTail);
-            width = h * 1.2;
-        } else if (kind === 'emperor' || kind === 'bonaparte') {
-            // 🐧 コウテイペンギン／ボナパルト（ナポレオン帽つき。帽子の天辺まで含めて指定の身長に収める）
-            const p = (kind === 'bonaparte') ? h / 1.05 : h;
-            const whiteMat = new THREE.MeshPhongMaterial({ color: 0xfafafa });
-            const chestMat = new THREE.MeshPhongMaterial({ color: 0xf2d98a });
-            const patchMat = new THREE.MeshPhongMaterial({ color: 0xf0b030 });
-            const pBeakMat = new THREE.MeshPhongMaterial({ color: 0x2b2b30 });
-            const beakLineMat = new THREE.MeshPhongMaterial({ color: 0xf08a3c });
-            // 足としっぽ
-            [-1, 1].forEach(side => ell(p * 0.055, p * 0.02, p * 0.1, darkMat, side * p * 0.07, p * 0.02, p * 0.07));
-            const pTail = ell(p * 0.05, p * 0.03, p * 0.1, darkMat, 0, p * 0.07, -p * 0.15);
-            pTail.rotation.x = -0.4;
-            // 体（背中側＝選んだ色）、白いお腹、胸の黄色
-            ell(p * 0.19, p * 0.4, p * 0.16, bodyMat, 0, p * 0.43, 0);
-            ell(p * 0.15, p * 0.36, p * 0.13, whiteMat, 0, p * 0.42, p * 0.04);
-            ell(p * 0.12, p * 0.09, p * 0.06, chestMat, 0, p * 0.72, p * 0.075);
-            // フリッパー（翼）
-            [-1, 1].forEach(side => {
-                const fl = ell(p * 0.035, p * 0.2, p * 0.08, bodyMat, side * p * 0.205, p * 0.5, 0);
-                fl.rotation.z = side * 0.18;
-            });
-            // 頭・耳の黄色い斑点・目
-            ell(p * 0.1, p * 0.1, p * 0.105, bodyMat, 0, p * 0.9, p * 0.01);
-            [-1, 1].forEach(side => {
-                ell(p * 0.022, p * 0.045, p * 0.045, patchMat, side * p * 0.088, p * 0.88, p * 0.015);
-                const eye = new THREE.Mesh(new THREE.SphereGeometry(p * 0.014, 10, 10), eyeMat);
-                eye.position.set(side * p * 0.045, p * 0.915, p * 0.097);
-                group.add(eye);
-            });
-            // くちばし
-            const pBeak = ell(p * 0.017, p * 0.017, p * 0.07, pBeakMat, 0, p * 0.89, p * 0.12);
-            pBeak.rotation.x = 0.25;
-            const pBeakLine = ell(p * 0.012, p * 0.006, p * 0.055, beakLineMat, 0, p * 0.873, p * 0.115);
-            pBeakLine.rotation.x = 0.25;
-
-            if (kind === 'bonaparte') {
-                // 🎩 ナポレオン帽（二角帽）：横向きに被り、金色の三色章つき
-                const hatMat = new THREE.MeshPhongMaterial({ color: 0x15151c });
-                const hatShape = new THREE.Shape();
-                hatShape.moveTo(-0.23, 0.1);
-                hatShape.quadraticCurveTo(0, -0.09, 0.23, 0.1);
-                hatShape.quadraticCurveTo(0, 0.12, -0.23, 0.1);
-                const hatDepth = 0.17;
-                const hat = new THREE.Mesh(new THREE.ExtrudeGeometry(hatShape, { depth: hatDepth, bevelEnabled: false }), hatMat);
-                hat.scale.set(p, p, p);
-                hat.position.set(0, p * 0.93, -p * hatDepth / 2);
-                group.add(hat);
-
-                const cockade = (r, color, dz) => {
-                    const c = new THREE.Mesh(new THREE.CylinderGeometry(p * r, p * r, p * 0.008, 16), new THREE.MeshPhongMaterial({ color: color }));
-                    c.rotation.x = Math.PI / 2;
-                    c.position.set(p * 0.1, p * 0.985, p * (hatDepth / 2 + dz));
-                    group.add(c);
-                };
-                cockade(0.032, 0x2a4fb0, 0.004);
-                cockade(0.023, 0xfafafa, 0.008);
-                cockade(0.013, 0xd23030, 0.012);
-            }
-            width = h * 0.45;
         } else {
             const rx = h * 0.36, ry = h * 0.34, rz = h * 0.8;
             ell(rx, ry, rz, bodyMat, 0, h - ry, 0);
@@ -1573,13 +1476,12 @@
         const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
         const ctx = canvas.getContext('2d'); ctx.font = "bold 45px sans-serif"; ctx.fillStyle = "#333"; ctx.textAlign = "center";
         const charLabel = String.fromCharCode(65 + index);
-        const displayName = name || (kind === 'bonaparte' ? 'ボナパルト' : charLabel);
+        const displayName = name || charLabel;
         ctx.fillText(`${displayName} (${heightCm.toFixed(1)}cm)`, 256, 64);
         const spriteMaterial = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) });
         const sprite = new THREE.Sprite(spriteMaterial);
-        const labelK = (kind === 'bonaparte') ? 4 : 1; // 巨大なボナパルトのラベルだけ大きくする
-        sprite.scale.set(1.5 * labelK, 0.38 * labelK, 1);
-        sprite.position.y = h + 0.3 * labelK;
+        sprite.scale.set(1.5, 0.38, 1);
+        sprite.position.y = h + 0.3;
         group.add(sprite);
 
         group.userData = { height: h, width: width };
