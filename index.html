@@ -118,13 +118,54 @@
         .switch-btn { width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; -webkit-tap-highlight-color: transparent; margin-bottom: 10px; }
         .switch-btn:active { background: #000; transform: scale(0.98); }
 
-        .share-btn { 
-            width: 100%; padding: 12px; background: #000; color: white; border: none; border-radius: 10px; 
-            font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 13px; 
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            text-decoration: none; margin-top: 10px;
+        .view-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
         }
-        .share-btn:active { transform: scale(0.98); opacity: 0.8; }
+        .btn-view {
+            flex: 1 1 56px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-view.active {
+            background: #333;
+            color: #fff;
+            border-color: #333;
+        }
+
+        #joystick {
+            position: fixed; left: 24px; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            width: 120px; height: 120px; border-radius: 50%;
+            background: rgba(0,0,0,0.08); border: 2px solid rgba(0,0,0,0.15);
+            z-index: 90; display: none; touch-action: none;
+        }
+        #joystick.show { display: block; }
+        #jump-btn, #fly-btn, #down-btn {
+            position: fixed; border-radius: 50%;
+            background: rgba(51,51,51,0.75); color: #fff; font-weight: bold;
+            display: none; align-items: center; justify-content: center; text-align: center; line-height: 1.2;
+            z-index: 90; touch-action: none; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        #jump-btn { right: 28px; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; font-size: 13px; }
+        #fly-btn  { right: 36px; bottom: calc(132px + env(safe-area-inset-bottom, 0px)); width: 60px; height: 60px; font-size: 12px; background: rgba(40,110,170,0.85); }
+        #down-btn { right: 116px; bottom: calc(48px + env(safe-area-inset-bottom, 0px)); width: 60px; height: 60px; font-size: 12px; }
+        #jump-btn.show, #fly-btn.show, #down-btn.show { display: flex; }
+        #jump-btn.pressed, #fly-btn.pressed, #down-btn.pressed { background: #000; transform: scale(0.94); }
+        #joy-knob {
+            position: absolute; left: 50%; top: 50%; width: 48px; height: 48px;
+            margin: -24px 0 0 -24px; border-radius: 50%;
+            background: rgba(51,51,51,0.7); pointer-events: none;
+        }
 
         .other-tools-link { margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 10px; text-align: center; }
         .other-tools-link a { text-decoration: none; color: #333; font-size: 12px; font-weight: bold; border: 2px solid #333; padding: 8px 15px; border-radius: 30px; display: inline-block; transition: 0.3s; margin: 4px; }
@@ -174,10 +215,20 @@
 
         <button class="switch-btn" onclick="addPerson()">＋ 人物を追加する</button>
 
+        <span class="hint">👁 視点の切り替え</span>
+        <div class="view-buttons" id="view-buttons"></div>
+
+        <span class="hint">🚶 自由探索（障害物に当たります）</span>
+        <div class="view-buttons">
+            <button id="v-explore" class="btn-view" onclick="toggleExplore()">🚶 自由探索モード</button>
+        </div>
+        <div id="explore-avatar-wrap" style="display:none">
+            <span class="hint">🧍 探索するマネキンを選ぶ（その人の目線・サイズで歩けます）</span>
+            <div class="view-buttons" id="explore-avatar"></div>
+        </div>
+        <span class="hint" id="explore-help" style="display:none; margin: -4px 0 10px; line-height: 1.5;"></span>
+
         <div id="info-container">
-            <button class="share-btn" onclick="shareToX()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>で結果をシェアする
-            </button>
             <div class="other-tools-link">
                 <p style="font-size: 10px; color: #888; margin-bottom: 8px;">こちらもチェック❣🤩</p>
                 <a href="https://qwertyaz111.github.io/my-site-hub/">ツール・シミュレーター一覧</a>
@@ -191,6 +242,10 @@
 </div>
 
 <div id="canvas-container"></div>
+<div id="joystick"><div id="joy-knob"></div></div>
+<div id="jump-btn">ジャンプ</div>
+<div id="fly-btn">🕊 飛ぶ</div>
+<div id="down-btn">下降</div>
 
 <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
@@ -199,6 +254,21 @@
     let walkGroup, houseGroup;
     let rotation = { x: 0, y: 0 }, camDist = 4, targetCamDist = 4, isDragging = false, previousTouch = null;
     let initialPinchDist = null;
+
+    // ===== 視点・自由探索 =====
+    let currentView = '3rd';          // '3rd' | 人物のindex(数値=一人称) | 'explore'
+    let currentMannequins = [];
+    let staticColliders = [], personColliders = [], colliders = [], surfaceMeshes = [];
+    let renderedSig = '';
+    const look = { yaw: 0, pitch: 0 };
+    const player = { x: 0, y: 0, vy: 0, z: 4 };
+    const MAX_TOP = 1.55, WALK_SPEED = 3, RUN_MULT = 2, GRAVITY = 14, JUMP_V = 5.0, FLY_V = 4, MAX_ALT = 40;
+    let exploreAvatar = 0, jumpQueued = false, jumpHeld = false, flying = false, flyDownHeld = false, grounded = true;
+    const keys = {};
+    const joy = { id: null, x: 0, y: 0 };
+    let lookTouchId = null, lookPrev = { x: 0, y: 0 };
+    let lastTime = performance.now();
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
     function makeTex(canvas) {
         const t = new THREE.CanvasTexture(canvas);
@@ -1339,6 +1409,7 @@
 
         houseGroup = createHouse();
         scene.add(houseGroup);
+        buildStaticColliders();
 
         walkGroup = new THREE.Group();
         scene.add(walkGroup);
@@ -1349,7 +1420,9 @@
         window.updateScene = updateScene;
         window.addPerson = addPerson;
         window.removePerson = removePerson;
-        window.shareToX = shareToX;
+        window.changeView = changeView;
+        window.setExploreAvatar = setExploreAvatar;
+        window.toggleExplore = () => changeView(currentView === 'explore' ? '3rd' : 'explore');
         window.togglePanel = () => {
             const panel = document.getElementById('ui-panel');
             const text = document.getElementById('toggle-text');
@@ -1484,7 +1557,7 @@
         sprite.position.y = h + 0.3;
         group.add(sprite);
 
-        group.userData = { height: h, width: width };
+        group.userData = { height: h, width: width, eye: kind === 'shoebill' ? { y: h * 0.92, z: h * 0.1 } : { y: h * 0.7, z: h * 0.95 }, kind: kind };
         return group;
     }
 
@@ -1541,7 +1614,7 @@
         sprite.position.y = h + 0.3; 
         group.add(sprite);
 
-        group.userData = { height: h, width: torsoW * 1.5 };
+        group.userData = { height: h, width: torsoW * 1.5, eye: { y: eyeY, z: headH * 0.7 }, kind: gender };
         return group;
     }
 
@@ -1580,7 +1653,12 @@
             mannequin.position.x = (index * dynamicDist) - (totalWidth / 2);
             walkGroup.add(mannequin);
         });
-        
+
+        currentMannequins = mannequins;
+        walkGroup.userData.totalWidth = totalWidth;
+        rebuildPersonColliders();
+        syncViewButtons();
+
         walkGroup.userData.maxHeight = maxHeight;
         if(!isDragging) {
             targetCamDist = Math.max(3, (totalWidth * 0.8) + 2);
@@ -1588,28 +1666,331 @@
         }
     }
 
+    // ----- 当たり判定 -----
+    function toCollider(b, owner = -1, mesh = null) {
+        return {
+            owner, mesh, high: b.min.y >= MAX_TOP,   // high：頭より上にある物（屋根・枝など）
+            minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, minY: b.min.y, maxY: b.max.y
+        };
+    }
+
+    // 家・庭の各メッシュから、壁の当たり判定（箱型）と「上に立てる面」を作る
+    function buildStaticColliders() {
+        staticColliders = [];
+        surfaceMeshes = [];
+        houseGroup.updateMatrixWorld(true);
+        const box = new THREE.Box3(), size = new THREE.Vector3();
+        const skipTypes = ['PlaneGeometry', 'ShapeGeometry', 'TorusGeometry'];
+        houseGroup.traverse(o => {
+            if (!o.isMesh) return;
+            box.setFromObject(o);
+            if (box.max.y <= 0.05) return;                 // 芝生・道は地面として扱う
+            surfaceMeshes.push(o);                          // 屋根・塀・木・噴水・井戸・アーチなど、立てる面
+            if (skipTypes.includes(o.geometry.type)) return;
+            if (box.max.y <= 0.3) return;                   // 低い段差は歩いて乗れる
+            box.getSize(size);
+            if (o.geometry.type === 'SphereGeometry' && Math.max(size.x, size.z) < 0.6) return; // 葉・花の飾り
+            staticColliders.push(toCollider(box, -1, o));
+        });
+        colliders = staticColliders.concat(personColliders);
+    }
+
+    function rebuildPersonColliders() {
+        personColliders = [];
+        walkGroup.updateMatrixWorld(true);
+        currentMannequins.forEach((m, idx) => {
+            const b = new THREE.Box3();
+            m.traverse(o => { if (o.isMesh) b.expandByObject(o); });
+            if (!b.isEmpty()) personColliders.push(toCollider(b, idx));
+        });
+        colliders = staticColliders.concat(personColliders);
+    }
+
+    // 探索に使うマネキン（目の高さ・体の太さ・頭の当たる高さ）
+    function getAvatar() {
+        const m = currentMannequins[exploreAvatar];
+        if (!m) return { eyeH: 1.6, r: 0.3, top: MAX_TOP, canFly: false };
+        const eye = m.userData.eye.y;
+        return {
+            eyeH: eye,
+            r: Math.max(0.2, Math.min(0.4, m.userData.width / 2)),
+            top: Math.min(eye, MAX_TOP),
+            canFly: m.userData.kind === 'shoebill'
+        };
+    }
+
+    const raycaster = new THREE.Raycaster();
+    const DOWN = new THREE.Vector3(0, -1, 0);
+    const _origin = new THREE.Vector3();
+
+    // 足元の「いちばん高い面」を探す（真下＋まわり4点から光線を落とす）
+    function supportAt(x, z, originY, r) {
+        let best = { h: 0, mesh: null };
+        const k = r * 0.8;
+        for (const [dx, dz] of [[0, 0], [k, 0], [-k, 0], [0, k], [0, -k]]) {
+            raycaster.set(_origin.set(x + dx, originY, z + dz), DOWN);
+            raycaster.far = originY + 1;
+            const hit = raycaster.intersectObjects(surfaceMeshes, false)[0];
+            if (hit && hit.point.y > best.h) best = { h: hit.point.y, mesh: hit.object };
+        }
+        return best;
+    }
+
+    function resolveCollisions(p, R, top, owner, fly, base, supMesh) {
+        for (let it = 0; it < 3; it++) {
+            for (const c of colliders) {
+                if (c.owner === owner) continue;                       // 自分自身には当たらない
+                if (c.mesh && c.mesh === supMesh) continue;            // 今乗っている物には押し出されない
+                if (!fly && c.high) continue;                          // 歩行中は頭より上の物を無視
+                const topAbs = fly ? p.y + top : base + top;           // 歩行：足元の面から / 飛行：体の上端
+                const bottom = fly ? p.y : p.y + 0.3;                  // 歩行：低い物はジャンプで越えられる
+                if (c.minY >= topAbs || c.maxY <= bottom) continue;
+                const cx = Math.max(c.minX, Math.min(p.x, c.maxX));
+                const cz = Math.max(c.minZ, Math.min(p.z, c.maxZ));
+                const dx = p.x - cx, dz = p.z - cz;
+                const d2 = dx * dx + dz * dz;
+                if (d2 >= R * R) continue;
+                if (d2 > 1e-9) {
+                    const d = Math.sqrt(d2);
+                    p.x = cx + dx / d * R;
+                    p.z = cz + dz / d * R;
+                } else {
+                    const l = p.x - c.minX, r = c.maxX - p.x, t = p.z - c.minZ, bt = c.maxZ - p.z;
+                    const m = Math.min(l, r, t, bt);
+                    if (m === l) p.x = c.minX - R;
+                    else if (m === r) p.x = c.maxX + R;
+                    else if (m === t) p.z = c.minZ - R;
+                    else p.z = c.maxZ + R;
+                }
+            }
+        }
+    }
+
+    function toggleFlight() {
+        if (currentView !== 'explore' || !getAvatar().canFly) return;
+        flying = !flying;
+        if (flying) { player.vy = 3; grounded = false; }
+        syncViewButtons();
+    }
+
+    function updateExplore(dt) {
+        const av = getAvatar();
+        if (!av.canFly && flying) { flying = false; syncViewButtons(); }
+
+        let f = ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0) - joy.y;
+        let s = ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0) + joy.x;
+        const len = Math.hypot(f, s);
+        if (len > 1) { f /= len; s /= len; }
+        if (len > 0.01) {
+            const speed = WALK_SPEED * ((keys.ShiftLeft || keys.ShiftRight) ? RUN_MULT : 1) * (flying ? 1.5 : 1) * dt;
+            const sy = Math.sin(look.yaw), cy = Math.cos(look.yaw);
+            player.x += (-sy * f + cy * s) * speed;
+            player.z += (-cy * f - sy * s) * speed;
+        }
+
+        // 上下の動き
+        const prevY = player.y;
+        const down = flyDownHeld || keys.KeyC;
+        if (flying) {
+            // 飛行：上昇（Space / 上昇ボタン）・下降（C / 下降ボタン）
+            const up = jumpHeld || keys.Space;
+            const target = ((up ? 1 : 0) - (down ? 1 : 0)) * FLY_V;
+            player.vy += (target - player.vy) * Math.min(1, dt * 8);
+            player.y = Math.min(MAX_ALT, player.y + player.vy * dt);
+            jumpQueued = false;
+        } else {
+            if ((jumpQueued || jumpHeld || keys.Space) && grounded) { player.vy = JUMP_V; grounded = false; }
+            jumpQueued = false;
+            player.vy = Math.max(-12, player.vy - GRAVITY * dt);
+            player.y += player.vy * dt;
+        }
+
+        // 足元の面（地面・屋根・塀・噴水・木・井戸・アーチなど）
+        const sup = Math.max(prevY, player.y);
+        const support = supportAt(player.x, player.z, sup + 0.35, av.r);
+        resolveCollisions(player, av.r, av.top, exploreAvatar, flying, support.h, support.mesh);
+        player.x = Math.max(-45, Math.min(45, player.x));
+        player.z = Math.max(-45, Math.min(45, player.z));
+
+        // 着地・立つ
+        const g = support.h;
+        if (flying) {
+            if (player.y <= g) {
+                player.y = g; player.vy = Math.max(player.vy, 0);
+                if (down) { flying = false; grounded = true; syncViewButtons(); }   // 面まで降りたら着地
+            }
+        } else if (player.vy <= 0 && (player.y <= g + 0.001 || (grounded && player.y - g <= 0.3))) {
+            player.y = g; player.vy = 0; grounded = true;
+        } else {
+            grounded = false;
+        }
+    }
+
+    // ----- 視点切り替え -----
+    function resetJoystick() {
+        joy.id = null; joy.x = 0; joy.y = 0;
+        jumpHeld = false; jumpQueued = false; flyDownHeld = false;
+        const knob = document.getElementById('joy-knob');
+        if (knob) knob.style.transform = '';
+        ['jump-btn', 'fly-btn', 'down-btn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('pressed');
+        });
+    }
+
+    // 選んだマネキンの立っている場所に移動して、その人になって歩き始める
+    function spawnAtAvatar() {
+        const m = currentMannequins[exploreAvatar];
+        player.x = m ? m.position.x : 0;
+        player.z = m ? m.position.z : 3;
+        player.y = 0; player.vy = 0;
+        flying = false; grounded = true;
+        look.yaw = Math.PI; look.pitch = 0;
+    }
+
+    function setExploreAvatar(i) {
+        exploreAvatar = i;
+        spawnAtAvatar();
+        resetJoystick();
+        syncViewButtons();
+    }
+
+    function changeView(v) {
+        const ae = document.activeElement;
+        if (ae && ae.tagName === 'BUTTON') ae.blur();   // Spaceでボタンが押されないように
+        currentView = v;
+        flying = false;
+        if (typeof v === 'number') {
+            look.yaw = Math.PI; look.pitch = 0;      // その人の向いている方向（+Z）
+        } else if (v === 'explore') {
+            exploreAvatar = Math.min(exploreAvatar, Math.max(0, currentMannequins.length - 1));
+            spawnAtAvatar();
+            // スマホでは操作パネルが画面を覆うので自動で閉じる
+            if (window.innerWidth <= 480 && !document.getElementById('ui-panel').classList.contains('collapsed')) {
+                window.togglePanel();
+            }
+        }
+        resetJoystick();
+        syncViewButtons();
+    }
+
+    // ボタンに表示する名前（未入力ならA, B, C…）
+    function personLabel(i) {
+        const g = document.querySelectorAll('.input-group')[i];
+        const nm = g ? g.querySelector('.name-input').value.trim() : '';
+        if (!nm) return String.fromCharCode(65 + i);
+        const ch = Array.from(nm);
+        return ch.length > 6 ? ch.slice(0, 6).join('') + '…' : nm;
+    }
+
+    function syncViewButtons() {
+        const n = document.querySelectorAll('.input-group').length;
+        if (typeof currentView === 'number' && currentView >= n) currentView = '3rd';
+        if (exploreAvatar >= n) exploreAvatar = Math.max(0, n - 1);
+
+        const labels = [];
+        for (let i = 0; i < n; i++) labels.push(personLabel(i));
+        const sig = n + ':' + labels.join('\u0001');
+
+        const wrap = document.getElementById('view-buttons');
+        if (renderedSig !== sig) {
+            renderedSig = sig;
+            const mk = (id, text, fn) => {
+                const b = document.createElement('button');
+                b.id = id; b.className = 'btn-view'; b.textContent = text;
+                b.addEventListener('click', fn);
+                return b;
+            };
+            wrap.replaceChildren(
+                mk('v-3rd', '三人称', () => changeView('3rd')),
+                ...labels.map((L, i) => mk(`v-${i}`, `${L}視点`, () => changeView(i)))
+            );
+            document.getElementById('explore-avatar').replaceChildren(
+                ...labels.map((L, i) => mk(`a-${i}`, L, () => setExploreAvatar(i)))
+            );
+        }
+        wrap.querySelectorAll('.btn-view').forEach(btn => {
+            btn.classList.toggle('active', String(currentView) === btn.id.slice(2));
+        });
+
+        const isExplore = currentView === 'explore';
+        const canFly = isExplore && getAvatar().canFly;
+        document.getElementById('v-explore').classList.toggle('active', isExplore);
+        document.getElementById('explore-avatar-wrap').style.display = isExplore ? 'block' : 'none';
+        document.querySelectorAll('#explore-avatar .btn-view').forEach((btn, i) => {
+            btn.classList.toggle('active', isExplore && i === exploreAvatar);
+        });
+        document.getElementById('joystick').classList.toggle('show', isExplore && isTouch);
+        document.getElementById('jump-btn').classList.toggle('show', isExplore && isTouch);
+        document.getElementById('jump-btn').innerText = flying ? '上昇' : 'ジャンプ';
+        document.getElementById('fly-btn').classList.toggle('show', canFly && isTouch);
+        document.getElementById('fly-btn').innerText = flying ? '🕊 着地' : '🕊 飛ぶ';
+        document.getElementById('down-btn').classList.toggle('show', canFly && flying && isTouch);
+
+        const help = document.getElementById('explore-help');
+        help.style.display = isExplore ? 'block' : 'none';
+        let txt = isTouch
+            ? '左のジョイスティックで移動 / 右のボタンでジャンプ / 画面ドラッグで視点を回す'
+            : 'WASD・矢印キーで移動 / Spaceでジャンプ / Shiftでダッシュ / ドラッグで視点 / Escで終了';
+        if (canFly) {
+            txt += isTouch
+                ? ' / 「飛ぶ」で飛行（上昇・下降ボタンで高さを調整）'
+                : ' / Fで飛行ON・OFF（飛行中は Spaceで上昇、Cで下降）';
+        }
+        help.innerText = txt;
+    }
+
     function animate() {
         requestAnimationFrame(animate);
-        const targetY = walkGroup.userData.maxHeight ? walkGroup.userData.maxHeight * 0.5 : 0.8;
-        const centerPos = new THREE.Vector3(0, targetY, 0);
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
 
-        camDist += (targetCamDist - camDist) * 0.15;
+        // 一人称・探索のときは自分の体を隠す
+        const selfIdx = currentView === 'explore' ? exploreAvatar : currentView;
+        currentMannequins.forEach((m, i) => { m.visible = (i !== selfIdx); });
 
-        camera.position.set(
-            centerPos.x + Math.sin(rotation.y) * camDist, 
-            centerPos.y + Math.sin(rotation.x) * camDist, 
-            centerPos.z + Math.cos(rotation.y) * camDist
-        );
-        camera.lookAt(centerPos);
+        const fov = currentView === '3rd' ? 50 : 70;
+        if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
+
+        if (typeof currentView === 'number' && !currentMannequins[currentView]) currentView = '3rd';
+
+        if (currentView === '3rd') {
+            const targetY = walkGroup.userData.maxHeight ? walkGroup.userData.maxHeight * 0.5 : 0.8;
+            const centerPos = new THREE.Vector3(0, targetY, 0);
+
+            camDist += (targetCamDist - camDist) * 0.15;
+
+            camera.position.set(
+                centerPos.x + Math.sin(rotation.y) * camDist,
+                centerPos.y + Math.sin(rotation.x) * camDist,
+                centerPos.z + Math.cos(rotation.y) * camDist
+            );
+            camera.lookAt(centerPos);
+        } else if (currentView === 'explore') {
+            updateExplore(dt);
+            camera.position.set(player.x, getAvatar().eyeH + player.y, player.z);
+            camera.rotation.set(look.pitch, look.yaw, 0);
+        } else {
+            const m = currentMannequins[currentView];
+            camera.position.set(m.position.x, m.userData.eye.y, m.position.z + m.userData.eye.z);
+            camera.rotation.set(look.pitch, look.yaw, 0);
+        }
         renderer.render(scene, camera);
     }
 
     function setupControls() {
         const c = document.getElementById('canvas-container');
-        const move = (dx, dy) => {
+
+        const orbit = (dx, dy) => {
             rotation.y -= dx * 0.005; rotation.x -= dy * 0.005;
             rotation.x = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, rotation.x));
         };
+        const rotateLook = (dx, dy) => {
+            look.yaw -= dx * 0.005;
+            look.pitch = Math.max(-1.45, Math.min(1.45, look.pitch - dy * 0.005));
+        };
+        const move = (dx, dy) => (currentView === '3rd' ? orbit(dx, dy) : rotateLook(dx, dy));
 
         const zoom = (delta) => {
             const factor = 1.05;
@@ -1620,15 +2001,24 @@
 
         c.addEventListener('wheel', e => {
             e.preventDefault();
-            zoom(e.deltaY);
+            if (currentView === '3rd') zoom(e.deltaY);
         }, { passive: false });
 
         c.addEventListener('mousedown', () => isDragging = true);
         window.addEventListener('mouseup', () => isDragging = false);
         window.addEventListener('mousemove', e => { if(isDragging) move(e.movementX, e.movementY); });
-        
-        c.addEventListener('touchstart', e => { 
-            isDragging = true; 
+
+        c.addEventListener('touchstart', e => {
+            isDragging = true;
+            if (currentView !== '3rd') {
+                // 一人称・探索：最初に触れた指で視点を回す
+                if (lookTouchId === null) {
+                    const t = e.changedTouches[0];
+                    lookTouchId = t.identifier;
+                    lookPrev = { x: t.clientX, y: t.clientY };
+                }
+                return;
+            }
             if (e.touches.length === 1) {
                 previousTouch = e.touches[0];
             } else if (e.touches.length === 2) {
@@ -1639,14 +2029,33 @@
             }
         }, { passive: false });
 
-        window.addEventListener('touchend', () => { 
-            isDragging = false; 
-            initialPinchDist = null;
-        });
+        const touchEnd = e => {
+            if (lookTouchId !== null) {
+                for (const t of e.changedTouches) {
+                    if (t.identifier === lookTouchId) { lookTouchId = null; isDragging = false; }
+                }
+            }
+            if (currentView === '3rd') {
+                isDragging = false;
+                initialPinchDist = null;
+            }
+        };
+        window.addEventListener('touchend', touchEnd);
+        window.addEventListener('touchcancel', touchEnd);
 
         window.addEventListener('touchmove', e => {
             if(!isDragging) return;
-            if (e.cancelable) e.preventDefault(); 
+            if (e.cancelable) e.preventDefault();
+
+            if (currentView !== '3rd') {
+                for (const t of e.changedTouches) {
+                    if (t.identifier === lookTouchId) {
+                        rotateLook(t.clientX - lookPrev.x, t.clientY - lookPrev.y);
+                        lookPrev = { x: t.clientX, y: t.clientY };
+                    }
+                }
+                return;
+            }
 
             if (e.touches.length === 1 && previousTouch) {
                 const touch = e.touches[0];
@@ -1657,25 +2066,88 @@
                     e.touches[0].pageX - e.touches[1].pageX,
                     e.touches[0].pageY - e.touches[1].pageY
                 );
-                
+
                 const ratio = initialPinchDist / dist;
                 targetCamDist *= ratio;
                 targetCamDist = Math.max(0.5, Math.min(50, targetCamDist));
                 initialPinchDist = dist;
             }
         }, { passive: false });
-    }
 
-    function shareToX() {
-        const groups = document.querySelectorAll('.input-group');
-        let text = "3D身長比較ツールで比較しました！\n";
-        groups.forEach((g, i) => {
-            const n = g.querySelector('.name-input').value || String.fromCharCode(65+i);
-            const h = parseFloat(g.querySelector('.height-input').value) || 0;
-            text += `${n}:${h.toFixed(1)}cm\n`;
+        // ----- キーボード（PC） -----
+        const typing = () => ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement && document.activeElement.tagName);
+        window.addEventListener('keydown', e => {
+            if (typing()) return;
+            if (e.code === 'Escape' && currentView === 'explore') { changeView('3rd'); return; }
+            if (currentView === 'explore' && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
+            if (e.code === 'KeyF' && currentView === 'explore' && !e.repeat) toggleFlight();
+            keys[e.code] = true;
         });
-        text += "#3D身長比較ツール\n";
-        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+            if (currentView === 'explore' && e.code === 'Space') e.preventDefault();
+        });
+        window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+        // ----- ジョイスティック（スマホ） -----
+        const joyEl = document.getElementById('joystick');
+        const knob = document.getElementById('joy-knob');
+        const joyUpdate = t => {
+            const r = joyEl.getBoundingClientRect();
+            let dx = t.clientX - (r.left + r.width / 2);
+            let dy = t.clientY - (r.top + r.height / 2);
+            const max = r.width / 2 - 12;
+            const len = Math.hypot(dx, dy);
+            if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+            joy.x = dx / max; joy.y = dy / max;
+        };
+        joyEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            const t = e.changedTouches[0];
+            joy.id = t.identifier;
+            joyUpdate(t);
+        }, { passive: false });
+        joyEl.addEventListener('touchmove', e => {
+            e.preventDefault(); e.stopPropagation();
+            for (const t of e.changedTouches) if (t.identifier === joy.id) joyUpdate(t);
+        }, { passive: false });
+        const joyEnd = e => {
+            for (const t of e.changedTouches) if (t.identifier === joy.id) resetJoystick();
+        };
+        joyEl.addEventListener('touchend', joyEnd);
+        joyEl.addEventListener('touchcancel', joyEnd);
+
+        // ----- ジャンプボタン（スマホ） -----
+        const jumpEl = document.getElementById('jump-btn');
+        jumpEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            jumpQueued = true; jumpHeld = true;
+            jumpEl.classList.add('pressed');
+        }, { passive: false });
+        const jumpEnd = e => { e.preventDefault(); jumpHeld = false; jumpEl.classList.remove('pressed'); };
+        jumpEl.addEventListener('touchend', jumpEnd, { passive: false });
+        jumpEl.addEventListener('touchcancel', jumpEnd, { passive: false });
+
+        // ----- 飛ぶ・下降ボタン（ハシビロコウ用） -----
+        const flyEl = document.getElementById('fly-btn');
+        flyEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            flyEl.classList.add('pressed');
+            toggleFlight();
+        }, { passive: false });
+        const flyEnd = e => { e.preventDefault(); flyEl.classList.remove('pressed'); };
+        flyEl.addEventListener('touchend', flyEnd, { passive: false });
+        flyEl.addEventListener('touchcancel', flyEnd, { passive: false });
+
+        const downEl = document.getElementById('down-btn');
+        downEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            flyDownHeld = true; downEl.classList.add('pressed');
+        }, { passive: false });
+        const downEnd = e => { e.preventDefault(); flyDownHeld = false; downEl.classList.remove('pressed'); };
+        downEl.addEventListener('touchend', downEnd, { passive: false });
+        downEl.addEventListener('touchcancel', downEnd, { passive: false });
     }
 
     init();
