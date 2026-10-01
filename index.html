@@ -1,0 +1,2117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎶音习习食官シミュレーター</title>
+    <style>
+        :root { --panel-width: 300px; }
+        body { margin: 0; font-family: 'Helvetica Neue', Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; background: #ffffff; overflow: hidden; }
+        #ui-panel {
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            width: var(--panel-width);
+            max-height: calc(100vh - 20px);
+            max-height: calc(100dvh - 20px);
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 15px; 
+            padding-bottom: 40px;
+            border-radius: 15px; 
+            z-index: 100; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+            border: 1px solid rgba(255,255,255,0.3); 
+            backdrop-filter: blur(10px); 
+            -webkit-backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            transition: all 0.2s ease-out;
+        }
+        #canvas-container { width: 100vw; height: 100vh; cursor: move; touch-action: none; }
+
+        @media screen and (max-width: 480px) { 
+            :root { --panel-width: calc(100vw - 20px); }
+            #ui-panel { left: 10px; right: 10px; }
+        }
+        
+        @media screen and (orientation: landscape) and (max-height: 500px) {
+            :root { --panel-width: 260px; }
+            #ui-panel { top: 5px; left: 5px; padding: 10px; max-height: calc(100vh - 10px); }
+            .app-title { font-size: 1.1rem; }
+            .input-group { padding: 8px; margin-bottom: 5px; }
+        }
+
+        .panel-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            cursor: pointer; 
+            user-select: none; 
+            gap: 10px; 
+        }
+        #toggle-text { 
+            font-size: 12px; 
+            font-weight: bold; 
+            color: #666; 
+            background: #eee; 
+            padding: 4px 10px; 
+            border-radius: 10px; 
+            white-space: nowrap;
+        }
+        .collapsed #ui-content { display: none; }
+
+        #ui-panel.collapsed {
+            max-height: none !important;
+            padding: 10px 15px !important;
+            overflow: hidden !important;
+            width: auto;
+            max-width: calc(100vw - 20px);
+        }
+
+        @media screen and (max-width: 480px) { 
+            #ui-panel.collapsed { right: auto; }
+        }
+
+        .app-title { 
+            font-size: 1.2rem; 
+            margin: 0; 
+            color: #333; 
+            font-weight: bold; 
+            white-space: nowrap;
+        }
+        .app-description { font-size: 11px; color: #777; margin-top: 8px; margin-bottom: 5px; line-height: 1.5; text-align: center; }
+        
+        .input-group { 
+            display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; 
+            margin-bottom: 10px; border: 1px solid #eee; position: relative; 
+        }
+        .group-default { background: #f9f9f9; }
+        .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+        .section-header strong { font-size: 15px; color: #444; }
+        
+        .remove-btn {
+            position: absolute; top: 8px; right: 8px; width: 24px; height: 24px;
+            background: #ff4444; color: white; border: none; border-radius: 50%;
+            cursor: pointer; font-weight: bold; font-size: 14px; line-height: 1;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .remove-btn:hover { background: #cc0000; }
+        .remove-btn:active { transform: scale(0.9); }
+
+        .input-row { display: flex; gap: 8px; align-items: flex-end; width: 100%; }
+        .input-item { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .hint { font-size: 10px; color: #999; margin-bottom: 2px; font-weight: bold; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: white; color: #333; width: 100%; box-sizing: border-box; }
+        
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        .color-picker { width: 100%; height: 38px; border: 2px solid #999; border-radius: 4px; cursor: pointer; padding: 0; background: none; appearance: none; -webkit-appearance: none; }
+        
+        .switch-btn { width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; -webkit-tap-highlight-color: transparent; margin-bottom: 10px; }
+        .switch-btn:active { background: #000; transform: scale(0.98); }
+
+        .view-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .btn-view {
+            flex: 1 1 56px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-view.active {
+            background: #333;
+            color: #fff;
+            border-color: #333;
+        }
+
+        #joystick {
+            position: fixed; left: 24px; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            width: 120px; height: 120px; border-radius: 50%;
+            background: rgba(0,0,0,0.08); border: 2px solid rgba(0,0,0,0.15);
+            z-index: 90; display: none; touch-action: none;
+        }
+        #joystick.show { display: block; }
+        #jump-btn, #fly-btn, #down-btn {
+            position: fixed; border-radius: 50%;
+            background: rgba(51,51,51,0.75); color: #fff; font-weight: bold;
+            display: none; align-items: center; justify-content: center; text-align: center; line-height: 1.2;
+            z-index: 90; touch-action: none; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        #jump-btn { right: 28px; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; font-size: 13px; }
+        #fly-btn  { right: 36px; bottom: calc(132px + env(safe-area-inset-bottom, 0px)); width: 60px; height: 60px; font-size: 12px; background: rgba(40,110,170,0.85); }
+        #down-btn { right: 116px; bottom: calc(48px + env(safe-area-inset-bottom, 0px)); width: 60px; height: 60px; font-size: 12px; }
+        #jump-btn.show, #fly-btn.show, #down-btn.show { display: flex; }
+        #jump-btn.pressed, #fly-btn.pressed, #down-btn.pressed { background: #000; transform: scale(0.94); }
+        #joy-knob {
+            position: absolute; left: 50%; top: 50%; width: 48px; height: 48px;
+            margin: -24px 0 0 -24px; border-radius: 50%;
+            background: rgba(51,51,51,0.7); pointer-events: none;
+        }
+
+        .other-tools-link { margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 10px; text-align: center; }
+        .other-tools-link a { text-decoration: none; color: #333; font-size: 12px; font-weight: bold; border: 2px solid #333; padding: 8px 15px; border-radius: 30px; display: inline-block; transition: 0.3s; margin: 4px; }
+        .other-tools-link a:hover { background: #333; color: #fff; }
+
+        .usage-notes { font-size: 10px; color: #999; margin-top: 12px; line-height: 1.5; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="ui-panel">
+    <div class="panel-header" onclick="togglePanel()">
+        <h1 class="app-title">🎶音习习食官シミュレーター</h1>
+        <span id="toggle-text">閉じる</span>
+    </div>
+
+    <div id="ui-content">
+        <p class="app-description">身長比較ができます。</p>
+        
+        <div id="input-container">
+            <div class="input-group group-default" id="group-0">
+                <button class="remove-btn" onclick="removePerson('group-0')">×</button>
+                <div class="section-header"><strong>A</strong></div>
+                <div class="input-row">
+                    <div class="input-item"><span class="hint">名前</span><input type="text" class="name-input" placeholder="名前A" oninput="updateScene()"></div>
+                    <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male">男</option><option value="female" selected>女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option></select></div>
+                </div>
+                <div class="input-row">
+                    <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" class="height-input" value="158.0" step="0.1" oninput="updateScene()"></div>
+                    <div class="input-item" style="flex: 0.35;"><span class="hint">色</span><input type="color" class="color-input color-picker" value="#ffcc99" oninput="updateScene()"></div>
+                </div>
+            </div>
+
+            <div class="input-group group-default" id="group-1">
+                <button class="remove-btn" onclick="removePerson('group-1')">×</button>
+                <div class="section-header"><strong>B</strong></div>
+                <div class="input-row">
+                    <div class="input-item"><span class="hint">名前</span><input type="text" class="name-input" placeholder="名前B" oninput="updateScene()"></div>
+                    <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male" selected>男</option><option value="female">女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option></select></div>
+                </div>
+                <div class="input-row">
+                    <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" class="height-input" value="171.5" step="0.1" oninput="updateScene()"></div>
+                    <div class="input-item" style="flex: 0.35;"><span class="hint">色</span><input type="color" class="color-input color-picker" value="#ffad60" oninput="updateScene()"></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="switch-btn" onclick="addPerson()">＋ 人物を追加する</button>
+
+        <span class="hint">👁 視点の切り替え</span>
+        <div class="view-buttons" id="view-buttons"></div>
+
+        <span class="hint">🚶 自由探索（障害物に当たります）</span>
+        <div class="view-buttons">
+            <button id="v-explore" class="btn-view" onclick="toggleExplore()">🚶 自由探索モード</button>
+        </div>
+        <div id="explore-avatar-wrap" style="display:none">
+            <span class="hint">🧍 探索するマネキンを選ぶ（その人の目線・サイズで歩けます）</span>
+            <div class="view-buttons" id="explore-avatar"></div>
+        </div>
+        <span class="hint" id="explore-help" style="display:none; margin: -4px 0 10px; line-height: 1.5;"></span>
+
+        <div id="info-container">
+            <div class="other-tools-link">
+                <p style="font-size: 10px; color: #888; margin-bottom: 8px;">こちらもチェック❣🤩</p>
+                <a href="https://qwertyaz111.github.io/my-site-hub/">ツール・シミュレーター一覧</a>
+            </div>
+            <div class="usage-notes">
+                 
+                ※営利目的や商用利用はご遠慮ください。
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+<div id="joystick"><div id="joy-knob"></div></div>
+<div id="jump-btn">ジャンプ</div>
+<div id="fly-btn">🕊 飛ぶ</div>
+<div id="down-btn">下降</div>
+
+<script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+
+    let scene, camera, renderer;
+    let walkGroup, houseGroup;
+    let rotation = { x: 0, y: 0 }, camDist = 4, targetCamDist = 4, isDragging = false, previousTouch = null;
+    let initialPinchDist = null;
+
+    // ===== 視点・自由探索 =====
+    let currentView = '3rd';          // '3rd' | 人物のindex(数値=一人称) | 'explore'
+    let currentMannequins = [];
+    let staticColliders = [], personColliders = [], colliders = [];
+    let renderedSig = '';
+    const look = { yaw: 0, pitch: 0 };
+    const player = { x: 0, y: 0, vy: 0, z: 4 };
+    const MAX_TOP = 1.55, WALK_SPEED = 3, RUN_MULT = 2, GRAVITY = 14, JUMP_V = 4.2, FLY_V = 4, MAX_ALT = 40;
+    let exploreAvatar = 0, jumpQueued = false, jumpHeld = false, flying = false, flyDownHeld = false;
+    const keys = {};
+    const joy = { id: null, x: 0, y: 0 };
+    let lookTouchId = null, lookPrev = { x: 0, y: 0 };
+    let lastTime = performance.now();
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+    function makeTex(canvas) {
+        const t = new THREE.CanvasTexture(canvas);
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.wrapS = THREE.RepeatWrapping;
+        t.wrapT = THREE.RepeatWrapping;
+        t.anisotropy = 4;
+        return t;
+    }
+
+    // 🎹 下半分がピアノ鍵盤・上半分が緑の屋根のテクスチャ（屋根の線は消去）
+    function createPianoKeysTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // 1. 上半分 (0〜256) を緑の単色屋根ベースにする（屋根の縦線を消去）
+        ctx.fillStyle = '#2f6e5a';
+        ctx.fillRect(0, 0, 1024, 256);
+
+        // 2. 下半分 (250〜512) をピアノ鍵盤にする
+        const keyTopY = 250;
+        const keyH = 262;
+
+        ctx.fillStyle = '#f0f4f2';
+        ctx.fillRect(0, keyTopY, 1024, keyH);
+
+        const totalKeys = 28; // 4オクターブ分
+        const keyW = 1024 / totalKeys;
+
+        // 白鍵の境目（縦線）
+        ctx.strokeStyle = '#223830';
+        ctx.lineWidth = 3;
+        for (let i = 0; i <= totalKeys; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * keyW, keyTopY);
+            ctx.lineTo(i * keyW, 512);
+            ctx.stroke();
+        }
+
+        // 白鍵の手前（下端）の立体影
+        ctx.fillStyle = '#b8ccc4';
+        ctx.fillRect(0, 480, 1024, 32);
+
+        // 黒鍵の描画 (2本, 3本のパターン)
+        const blackKeyPattern = [0, 1, 3, 4, 5];
+        const blackKeyW = keyW * 0.58;
+        const blackKeyH = 150;
+
+        for (let octave = 0; octave < 4; octave++) {
+            blackKeyPattern.forEach(idx => {
+                const x = (octave * 7 + idx + 0.71) * keyW;
+                // 黒鍵本体
+                ctx.fillStyle = '#172420';
+                ctx.fillRect(x, keyTopY, blackKeyW, blackKeyH);
+                // 黒鍵の上面ハイライト
+                ctx.fillStyle = '#2c423b';
+                ctx.fillRect(x + 2, keyTopY, blackKeyW - 4, 12);
+                // 黒鍵の下端の厚み
+                ctx.fillStyle = '#0a1210';
+                ctx.fillRect(x, keyTopY + blackKeyH - 12, blackKeyW, 12);
+            });
+        }
+
+        const t = makeTex(canvas);
+        t.repeat.set(1, 1);
+        return t;
+    }
+
+    function createStandingSeamTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#2f6e5a';
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = '#245647';
+        ctx.fillRect(0, 0, 6, 128);
+        ctx.fillStyle = '#3b8269';
+        ctx.fillRect(6, 0, 3, 128);
+
+        const t = makeTex(canvas);
+        t.repeat.set(12, 1);
+        return t;
+    }
+
+    function createCelloReliefTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0, 0, 256, 512);
+        ctx.fillStyle = '#1c2430';
+
+        // 離れていた2円をくっつけて一体化した瓢箪型（チェロ型）の窓に変更
+        ctx.beginPath();
+        ctx.arc(128, 175, 55, 0, Math.PI * 2);
+        ctx.arc(128, 295, 75, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillRect(118, 50, 20, 120);
+        ctx.fillRect(100, 40, 56, 20);
+
+        return makeTex(canvas);
+    }
+
+    // 𝄋 セレーニョ記号テクスチャ（左塔の丸窓用）
+    function createSegnoTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#223040';
+        ctx.fillRect(0, 0, 256, 256);
+
+        ctx.strokeStyle = '#4a3222';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(6, 6, 244, 244);
+
+        ctx.strokeStyle = '#d4af37';
+        ctx.fillStyle = '#d4af37';
+        ctx.lineWidth = 8;
+
+        // 斜め線
+        ctx.beginPath();
+        ctx.moveTo(60, 196);
+        ctx.lineTo(196, 60);
+        ctx.stroke();
+
+        // S字カーブ
+        ctx.font = 'bold 150px "Times New Roman", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('S', 128, 128);
+
+        // 2つのドット
+        ctx.beginPath();
+        ctx.arc(95, 95, 10, 0, Math.PI * 2);
+        ctx.arc(161, 161, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        return makeTex(canvas);
+    }
+
+    // 🎼 頂点の金色のト音記号（&）スプライト
+    function createTrebleClefSprite() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 384;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 256, 384);
+
+        ctx.font = 'bold 300px "Times New Roman", "Georgia", serif';
+        ctx.fillStyle = '#d4af37';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+
+        ctx.fillText('&', 128, 192);
+
+        const tex = makeTex(canvas);
+        const mat = new THREE.MeshPhongMaterial({ map: tex, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.25), mat);
+        return plane;
+    }
+
+    function createScoreRailingTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0, 0, 512, 128);
+        ctx.strokeStyle = '#d4af37';
+        ctx.lineWidth = 4;
+
+        for (let i = 0; i < 5; i++) {
+            const y = 24 + i * 20;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(512, y);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#d4af37';
+        for (let x = 60; x < 500; x += 80) {
+            ctx.beginPath();
+            ctx.arc(x, 70, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(x + 8, 20, 4, 50);
+        }
+
+        const texture = makeTex(canvas);
+        texture.repeat.set(2, 1);
+        return texture;
+    }
+
+    function createLargeGridWindowTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#3a586d';
+        ctx.fillRect(0, 0, 512, 512);
+
+        ctx.strokeStyle = '#4a3222';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(6, 6, 500, 500);
+
+        ctx.lineWidth = 6;
+        for (let x = 64; x < 512; x += 64) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 512);
+            ctx.stroke();
+        }
+        for (let y = 64; y < 512; y += 64) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(512, y);
+            ctx.stroke();
+        }
+
+        return makeTex(canvas);
+    }
+
+    function createArchWindowTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 256, 300);
+
+        const outline = () => {
+            ctx.beginPath();
+            ctx.moveTo(12, 292);
+            ctx.lineTo(12, 124);
+            ctx.arc(128, 124, 116, Math.PI, 0);
+            ctx.lineTo(244, 292);
+            ctx.closePath();
+        };
+
+        outline();
+        ctx.fillStyle = '#4f7ea8';
+        ctx.fill();
+
+        ctx.save();
+        outline();
+        ctx.clip();
+        ctx.strokeStyle = '#4a3222';
+        ctx.lineWidth = 6;
+        for (let x = 70; x < 244; x += 58) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 300);
+            ctx.stroke();
+        }
+        for (let y = 80; y < 300; y += 70) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(256, y);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        outline();
+        ctx.strokeStyle = '#4a3222';
+        ctx.lineWidth = 14;
+        ctx.stroke();
+
+        return makeTex(canvas);
+    }
+
+    // 🚪 玄関ドア：上部は放射状の桟＋内側アーチ付きの青い扇形窓、下部は焦げ茶の観音開き、左右に金色のカーブ装飾
+    function createDoorTexture() {
+        const W = 512, H = 680, cx = W / 2, spring = 256, R = 248;
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+
+        const BROWN = '#4a3222', BLUE = '#5b88b5', LINE = '#1c140e', GOLD = '#f4e35a';
+
+        const outline = () => {
+            ctx.beginPath();
+            ctx.moveTo(8, H);
+            ctx.lineTo(8, spring);
+            ctx.arc(cx, spring, R, Math.PI, 0);
+            ctx.lineTo(W - 8, H);
+            ctx.closePath();
+        };
+
+        // 扉全体（焦げ茶）
+        outline();
+        ctx.fillStyle = BROWN;
+        ctx.fill();
+
+        // 上部の青い扇形窓
+        ctx.beginPath();
+        ctx.moveTo(26, spring);
+        ctx.arc(cx, spring, R - 18, Math.PI, 0);
+        ctx.lineTo(W - 26, spring);
+        ctx.closePath();
+        ctx.fillStyle = BLUE;
+        ctx.fill();
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = LINE;
+
+        // 内側のアーチ
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(cx, spring, 150, Math.PI, 0);
+        ctx.stroke();
+
+        // 放射状の桟（内側アーチ〜外周）
+        [Math.PI * 0.25, Math.PI * 0.5, Math.PI * 0.75].forEach(t => {
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(t) * 150, spring - Math.sin(t) * 150);
+            ctx.lineTo(cx + Math.cos(t) * (R - 18), spring - Math.sin(t) * (R - 18));
+            ctx.stroke();
+        });
+
+        // 扇形窓と扉の境の横桟
+        ctx.lineWidth = 12;
+        ctx.beginPath();
+        ctx.moveTo(8, spring);
+        ctx.lineTo(W - 8, spring);
+        ctx.stroke();
+
+        // 観音開きの中央線
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(cx, spring);
+        ctx.lineTo(cx, H);
+        ctx.stroke();
+
+        // 金色のカーブ装飾（左右対称）
+        ctx.strokeStyle = GOLD;
+        ctx.lineWidth = 24;
+        const handle = (mx) => {
+            const X = (x) => mx ? W - x : x;
+            ctx.beginPath();
+            ctx.moveTo(X(205), 387);
+            ctx.bezierCurveTo(X(165), 385, X(158), 440, X(140), 510);
+            ctx.bezierCurveTo(X(125), 565, X(80), 585, X(41), 592);
+            ctx.stroke();
+        };
+        handle(false);
+        handle(true);
+
+        // 下端の敷居線
+        ctx.strokeStyle = LINE;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(8, H - 5);
+        ctx.lineTo(W - 8, H - 5);
+        ctx.stroke();
+
+        // 外周の黒い縁取り
+        outline();
+        ctx.strokeStyle = LINE;
+        ctx.lineWidth = 12;
+        ctx.stroke();
+
+        return makeTex(canvas);
+    }
+
+    // 🏛️ 右棟の壁面テクスチャ（〇窓を中心に壁全体を大きな十字にする修正）
+    function createGableFrontTexture() {
+        const W = 512, H = 725, GY = 205; // 三角部の高さ2.45に合わせて調整（壁面部520pxは元のまま）
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, W, H);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, H);
+        ctx.lineTo(0, GY);
+        ctx.lineTo(W / 2, 0);
+        ctx.lineTo(W, GY);
+        ctx.lineTo(W, H);
+        ctx.closePath();
+        ctx.clip();
+
+        // 漆喰壁面ベース
+        ctx.fillStyle = '#f5f0e1';
+        ctx.fillRect(0, 0, W, H);
+
+        // 両端のクオイン（角石）
+        ctx.fillStyle = '#8c8882';
+        for (let y = GY, i = 0; y < H; y += 60, i++) {
+            const w = (i % 2 === 0) ? 38 : 24;
+            ctx.fillRect(0, y, w, 52);
+            ctx.fillRect(W - w, y, w, 52);
+            ctx.strokeStyle = '#5a5752';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, y, w, 52);
+            ctx.strokeRect(W - w, y, w, 52);
+        }
+
+        // 焦げ茶の木枠（ハーフティンバー）
+        ctx.fillStyle = '#3d2618';
+        ctx.strokeStyle = '#26160d';
+
+        // 外周フレーム
+        ctx.fillRect(0, GY - 10, W, 20); // 三角下桁
+        ctx.fillRect(0, H - 20, W, 20);   // 土台
+        ctx.fillRect(0, GY, 20, H - GY); // 左柱
+        ctx.fillRect(W - 20, GY, 20, H - GY); // 右柱
+
+        // 壁面を〇窓（Y=150, X=256）を交差点として貫く大きな「十字」
+        const circleCenterY = 117;
+        const circleCenterX = W / 2; // 256
+
+        // 1. 水平梁（大壁面の中央梁）- 周りの高さ(Y=3.0)とぴったり一致する位置へ調整
+        const crossY = 474; // 世界座標Y=3.0（他の梁と同じ高さ）を維持
+        ctx.fillRect(0, crossY - 12, W, 24); 
+
+        // 2. 垂直柱（屋根のてっぺんから下端まで、〇窓の交差点を通る1本の柱）
+        ctx.fillRect(circleCenterX - 12, 0, 24, H); 
+
+        // 3. 〇窓を通る「水平梁」（壁面全体の十字として交差させる）
+        ctx.fillRect(0, circleCenterY - 12, W, 24);
+
+        // 窓の描画（十字の区画に配置）
+        const drawTimberWindow = (cx, top, w, h) => {
+            ctx.fillStyle = '#4f7ea8';
+            ctx.fillRect(cx - w / 2, top, w, h);
+            ctx.strokeStyle = '#2a1a0e';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(cx - w / 2, top, w, h);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx, top);
+            ctx.lineTo(cx, top + h);
+            ctx.moveTo(cx - w / 2, top + h / 2);
+            ctx.lineTo(cx + w / 2, top + h / 2);
+            ctx.stroke();
+        };
+
+        const leftWinX = W * 0.25;  // 128
+        const rightWinX = W * 0.75; // 384
+        
+        drawTimberWindow(leftWinX, 265, 80, 120);  // 2F左
+        drawTimberWindow(rightWinX, 265, 80, 120); // 2F右
+        drawTimberWindow(leftWinX, 515, 80, 120);  // 1F左
+        drawTimberWindow(rightWinX, 515, 80, 120); // 1F右
+
+        // 三角破風（ペディメント）部の外周斜め梁
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = '#3d2618';
+        ctx.beginPath();
+        ctx.moveTo(0, GY);
+        ctx.lineTo(W / 2, 0);
+        ctx.lineTo(W, GY);
+        ctx.stroke();
+
+        // 𝄌 コーダ記号の丸窓（破風中央、十字の交差点）
+        ctx.beginPath();
+        ctx.arc(circleCenterX, circleCenterY, 56, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e2836';
+        ctx.fill();
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = '#3d2618';
+        ctx.stroke();
+
+        // コーダ記号描画 (円 + 十字 + 4点)
+        ctx.strokeStyle = '#d4af37';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(circleCenterX, circleCenterY, 34, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(circleCenterX, circleCenterY - 46);
+        ctx.lineTo(circleCenterX, circleCenterY + 46);
+        ctx.moveTo(circleCenterX - 46, circleCenterY);
+        ctx.lineTo(circleCenterX + 46, circleCenterY);
+        ctx.stroke();
+
+        ctx.fillStyle = '#d4af37';
+        [[-20, -20], [20, -20], [-20, 20], [20, 20]].forEach(([dx, dy]) => {
+            ctx.beginPath();
+            ctx.arc(circleCenterX + dx, circleCenterY + dy, 5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.restore();
+        return makeTex(canvas);
+    }
+
+    function createHipRoof(w, d, h, ridge, mat) {
+        const hw = w / 2, hd = d / 2, rl = ridge / 2;
+        const A = [-hw, 0, hd], B = [hw, 0, hd], C = [hw, 0, -hd], D = [-hw, 0, -hd];
+        const R1 = [-rl, h, 0], R2 = [rl, h, 0];
+        const pos = [], uv = [];
+        const tri = (p, q, r, a, b, c) => {
+            pos.push(...p, ...q, ...r);
+            uv.push(...a, ...b, ...c);
+        };
+        tri(A, B, R2, [0, 0], [1, 0], [(rl + hw) / w, 1]);
+        tri(A, R2, R1, [0, 0], [(rl + hw) / w, 1], [(-rl + hw) / w, 1]);
+        tri(C, D, R1, [0, 0], [1, 0], [(hw + rl) / w, 1]);
+        tri(C, R1, R2, [0, 0], [(hw + rl) / w, 1], [(hw - rl) / w, 1]);
+        tri(B, C, R2, [0, 0], [1, 0], [0.5, 1]);
+        tri(D, A, R1, [0, 0], [1, 0], [0.5, 1]);
+
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        g.computeVertexNormals();
+        return new THREE.Mesh(g, mat);
+    }
+
+    // 🏠 切妻屋根（棟がX方向。左右端は左棟・右棟の棟木まで届く）
+    // x0〜x1：屋根の左右端 / d：奥行き / h0：左端の高さ / h1：右端〜中央の高さ
+    // uOrigin・uWidth：鍵盤テクスチャ1周分の範囲（中央部の鍵盤の見た目を元のまま維持するため）
+    function createGableRoof(x0, x1, d, h0, h1, roofMat, capMat, uOrigin, uWidth) {
+        const group = new THREE.Group();
+        const hd = d / 2;
+        const ridge = [[x0, h0], [uOrigin, h1], [x1, h1]];
+        const U = (x) => (x - uOrigin) / uWidth;
+        const pos = [], uv = [];
+        const tri = (p, q, r) => {
+            pos.push(...p.xyz, ...q.xyz, ...r.xyz);
+            uv.push(U(p.xyz[0]), p.v, U(q.xyz[0]), q.v, U(r.xyz[0]), r.v);
+        };
+        const V = (x, y, z, v) => ({ xyz: [x, y, z], v });
+        for (let i = 0; i < 2; i++) {
+            const [xa, ha] = ridge[i], [xb, hb] = ridge[i + 1];
+            // 前面スロープ
+            const A = V(xa, 0, hd, 0), B = V(xb, 0, hd, 0), R2 = V(xb, hb, 0, 1), R1 = V(xa, ha, 0, 1);
+            tri(A, B, R2); tri(A, R2, R1);
+            // 背面スロープ
+            const C = V(xb, 0, -hd, 0), D = V(xa, 0, -hd, 0);
+            tri(C, D, R1); tri(C, R1, R2);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        g.computeVertexNormals();
+        group.add(new THREE.Mesh(g, roofMat));
+
+        // 両端の妻壁（左右の棟の屋根の内側に隠れる）
+        const cp = [];
+        cp.push(x0, 0, hd, x0, h0, 0, x0, 0, -hd);
+        cp.push(x1, 0, hd, x1, 0, -hd, x1, h1, 0);
+        const cg = new THREE.BufferGeometry();
+        cg.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
+        cg.computeVertexNormals();
+        group.add(new THREE.Mesh(cg, capMat));
+        return group;
+    }
+
+    // 盛り上がる（凸型）弧状の塀を生成する関数
+    function createCurvedWallGroup(wallMat, stoneMat) {
+        const wallGroup = new THREE.Group();
+        const W = 10.0, depth = 0.45;
+        
+        // 上辺が凸状（中央が盛り上がる）の弧を描くShape
+        const shape = new THREE.Shape();
+        shape.moveTo(-W / 2, 0);
+        shape.lineTo(W / 2, 0);
+        shape.lineTo(W / 2, 1.3);
+        shape.quadraticCurveTo(0, 1.9, -W / 2, 1.3);
+        shape.closePath();
+
+        const extrudeSettings = { depth: depth, bevelEnabled: false };
+        const wallGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        wallGeo.center();
+        const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+        wallMesh.position.y = 0.95;
+        wallGroup.add(wallMesh);
+
+        return wallGroup;
+    }
+
+    function createHouse() {
+        const house = new THREE.Group();
+
+        const wallMat = new THREE.MeshPhongMaterial({ color: 0xf3ecd9 });
+        const wallDoubleMat = new THREE.MeshPhongMaterial({ color: 0xf3ecd9, side: THREE.DoubleSide });
+        const whiteMat = new THREE.MeshPhongMaterial({ color: 0xfbf8ee });
+        const woodTrimMat = new THREE.MeshPhongMaterial({ color: 0x4a3222 });
+        const greenRoofMat = new THREE.MeshPhongMaterial({ color: 0x2f6e5a, side: THREE.DoubleSide });
+        const darkRoofMat = new THREE.MeshPhongMaterial({ color: 0x1f4a3d });
+        const glassMat = new THREE.MeshPhongMaterial({ color: 0x4a7c9d, transparent: true, opacity: 0.7 });
+        const goldMat = new THREE.MeshPhongMaterial({ color: 0xd4af37, shininess: 80 });
+        const goldDoubleMat = new THREE.MeshPhongMaterial({ color: 0xd4af37, shininess: 80, side: THREE.DoubleSide });
+        const stoneMat = new THREE.MeshPhongMaterial({ color: 0x8a8782 });
+        const ironMat = new THREE.MeshPhongMaterial({ color: 0x1c1c24 });
+        const ivyMat = new THREE.MeshPhongMaterial({ color: 0x3f7a32 });
+
+        const texMat = (tex, at = 0.3) => new THREE.MeshPhongMaterial({ map: tex, transparent: true, alphaTest: at, side: THREE.DoubleSide });
+        const roofKeyMat = new THREE.MeshPhongMaterial({ map: createPianoKeysTexture(), side: THREE.DoubleSide });
+        const seamRoofMat = new THREE.MeshPhongMaterial({ map: createStandingSeamTexture(), side: THREE.DoubleSide });
+        const celloMat = texMat(createCelloReliefTexture());
+        const segnoWindowMat = new THREE.MeshPhongMaterial({ map: createSegnoTexture() });
+        const railingMat = texMat(createScoreRailingTexture(), 0.15);
+        const railingSmallTex = createScoreRailingTexture();
+        railingSmallTex.repeat.set(1, 1);
+        const railingSmallMat = texMat(railingSmallTex, 0.15);
+        const gridWinMat = new THREE.MeshPhongMaterial({ map: createLargeGridWindowTexture(), side: THREE.DoubleSide });
+        const archWinMat = texMat(createArchWindowTexture());
+        const doorMat = texMat(createDoorTexture());
+        const gableFrontMat = texMat(createGableFrontTexture());
+
+        const box = (parent, w, h, d, mat, x, y, z) => {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+            m.position.set(x, y, z);
+            parent.add(m);
+            return m;
+        };
+        const cyl = (parent, rt, rb, h, seg, mat, x, y, z) => {
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
+            m.position.set(x, y, z);
+            parent.add(m);
+            return m;
+        };
+        const plane = (parent, w, h, mat, x, y, z, ry = 0) => {
+            const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+            m.position.set(x, y, z);
+            m.rotation.y = ry;
+            parent.add(m);
+            return m;
+        };
+        const octa = (rTop, rBot, h, mat, x, y, z) => {
+            const m = cyl(house, rTop, rBot, h, 8, mat, x, y, z);
+            m.rotation.y = Math.PI / 8;
+            return m;
+        };
+        const facetPlane = (cx, cz, r, ang, y, w, h, mat, off = 0.13) => {
+            const a = r * Math.cos(Math.PI / 8) + off;
+            return plane(house, w, h, mat, cx + Math.sin(ang) * a, y, cz + Math.cos(ang) * a, ang);
+        };
+
+        // 正面棟の屋根の基準高さ（右棟の棟高もこれに合わせる）
+        const FRONT_ROOF_BASE_Y = 6.25, FRONT_ROOF_RISE = 2.4;
+        const FRONT_RIDGE_Y = FRONT_ROOF_BASE_Y + FRONT_ROOF_RISE;
+
+        // 1. メイン中央棟
+        box(house, 11.0, 6.0, 7.0, wallMat, 0, 3.0, -0.5);
+        box(house, 11.2, 0.5, 7.0, stoneMat, 0, 0.25, -0.5);
+        box(house, 11.2, 0.25, 7.0, woodTrimMat, 0, 3.0, -0.5);
+        box(house, 11.6, 0.3, 7.6, darkRoofMat, 0, 6.1, -0.5);
+
+        // 正面棟の4つある支柱のうち、左右の棟側の支柱2本を削除して中央の2本のみ配置
+        [-1.6, 1.6].forEach(x => {
+            cyl(house, 0.22, 0.24, 6.0, 16, whiteMat, x, 3.0, 3.95);
+            box(house, 0.6, 0.25, 0.6, whiteMat, x, 0.125, 3.95);
+            box(house, 0.6, 0.25, 0.6, whiteMat, x, 5.95, 3.95);
+        });
+        box(house, 10.4, 0.3, 1.4, darkRoofMat, 0, 6.1, 3.7);
+        box(house, 10.4, 0.25, 1.4, woodTrimMat, 0, 3.0, 3.7);
+
+        // 正面棟の上の窓：真ん中はそのまま（幅2.2）、左右のふたつは幅を広く（幅2.8）
+        plane(house, 2.8, 2.6, archWinMat, -3.2, 4.65, 3.03);
+        plane(house, 2.2, 2.6, archWinMat, 0, 4.65, 3.03);
+        plane(house, 2.8, 2.6, archWinMat, 3.2, 4.65, 3.03);
+
+        plane(house, 2.0, 2.65, doorMat, 0, 0.2 + 2.65 / 2, 3.03); // 三和土の天端(Y=0.2)に扉下端を合わせて埋まりを解消
+        [-3.2, 3.2].forEach(x => {
+            plane(house, 1.1, 2.2, celloMat, x, 1.6, 3.03);
+        });
+
+        plane(house, 9.6, 0.95, railingMat, 0, 3.65, 4.32);
+        box(house, 9.8, 0.1, 0.12, goldMat, 0, 4.15, 4.32);
+
+        // 玄関の三和土（高さ0.4→0.2/0.1に薄型化）
+        box(house, 4.4, 0.1, 1.4, stoneMat, 0, 0.05, 4.9);
+        box(house, 3.8, 0.2, 0.9, stoneMat, 0, 0.1, 4.45);
+        box(house, 3.8, 0.2, 1.1, stoneMat, 0, 0.1, 3.5); // 三和土：扉(z=3.0)から石段までを隙間なくつなぐ
+
+        // 左端：左棟の棟木(x=-7.6, 高さ2.2) / 右端：右棟の棟木(x=8.2, 高さ=正面棟と同じ)まで延長してくっつける
+        const mainRoof = createGableRoof(-7.6, 8.2, 9.0, 2.2, FRONT_ROOF_RISE, roofKeyMat, wallDoubleMat, -5.8, 11.6);
+        mainRoof.position.set(0, FRONT_ROOF_BASE_Y, -0.2);
+        house.add(mainRoof);
+
+        // 2. 裏庭側の八角棟 (bay) と、その上に載るドーム塔 (cupola)
+        const bayR = 2.5, bayX = 0, bayZ = -6.0 - bayR * Math.cos(Math.PI / 8);
+        octa(bayR, bayR, 6.0, wallMat, bayX, 3.0, bayZ);
+        octa(bayR + 0.1, bayR + 0.15, 0.5, stoneMat, bayX, 0.25, bayZ);
+        octa(bayR + 0.1, bayR + 0.1, 0.22, woodTrimMat, bayX, 3.0, bayZ);
+        octa(bayR + 0.2, bayR + 0.2, 0.3, darkRoofMat, bayX, 6.1, bayZ);
+
+        // 後ろの円筒状（八角）棟の三和土（高さ0.4→0.2/0.1に薄型化）
+        box(house, 5.0, 0.1, 2.5, stoneMat, 0, 0.05, bayZ - 3.25);
+        box(house, 4.4, 0.2, 1.8, stoneMat, 0, 0.1, bayZ - 2.9);
+        
+        const bayRoof = new THREE.Mesh(new THREE.ConeGeometry(bayR + 0.45, 2.2, 8), greenRoofMat);
+        bayRoof.rotation.y = Math.PI / 8;
+        bayRoof.position.set(bayX, 6.25 + 1.1, bayZ);
+        house.add(bayRoof);
+
+        for (let i = 2; i <= 6; i++) {
+            const ang = i * Math.PI / 4;
+            facetPlane(bayX, bayZ, bayR, ang, 4.7, 1.1, 1.9, archWinMat);
+            if (i === 4) {
+                facetPlane(bayX, bayZ, bayR, ang, 1.35, 1.6, 2.2, doorMat);
+            } else if (i === 3 || i === 5) {
+                facetPlane(bayX, bayZ, bayR, ang, 1.7, 0.9, 1.8, celloMat);
+            } else {
+                facetPlane(bayX, bayZ, bayR, ang, 1.1, 1.9, archWinMat);
+            }
+        }
+
+        // 🏰 ドーム塔（カップラ）：裏の八角棟（bay）の上に配置
+        const cupX = bayX, cupZ = bayZ;
+        const cupBaseY = 8.2;
+        octa(1.55, 1.7, 1.2, whiteMat, cupX, cupBaseY, cupZ);
+        octa(1.7, 1.7, 0.2, whiteMat, cupX, cupBaseY + 0.7, cupZ);
+
+        for (let i = 0; i < 8; i++) {
+            const a = Math.PI / 8 + i * Math.PI / 4;
+            cyl(house, 0.09, 0.09, 0.9, 8, whiteMat, cupX + Math.sin(a) * 1.4, cupBaseY + 1.25, cupZ + Math.cos(a) * 1.4);
+        }
+        for (let i = 0; i < 8; i++) {
+            const a = i * Math.PI / 4;
+            const arch = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.045, 6, 12, Math.PI), whiteMat);
+            arch.position.set(cupX + Math.sin(a) * 1.29, cupBaseY + 1.7, cupZ + Math.cos(a) * 1.29);
+            arch.rotation.y = a;
+            house.add(arch);
+        }
+        octa(1.7, 1.7, 0.25, whiteMat, cupX, cupBaseY + 2.275, cupZ);
+
+        const domePts = [[1.75, 0], [1.7, 0.15], [1.45, 0.5], [1.05, 0.85], [0.6, 1.1], [0.25, 1.35], [0.05, 1.55]]
+            .map(([x, y]) => new THREE.Vector2(x, y * 1.1));
+        const dome = new THREE.Mesh(new THREE.LatheGeometry(domePts, 8), greenRoofMat);
+        dome.rotation.y = Math.PI / 8;
+        dome.position.set(cupX, cupBaseY + 2.4, cupZ);
+        house.add(dome);
+
+        // 🎼 ドーム塔頂点：金色のト音記号（&）オブジェ
+        const trebleClefObj = createTrebleClefSprite();
+        trebleClefObj.position.set(cupX, cupBaseY + 4.3, cupZ);
+        house.add(trebleClefObj);
+
+        // 4. 左側：八角塔＋左翼（前面に少し張り出し TZ: 4.4 → 5.2）
+        const LX = -7.6;
+        const backZ = bayZ - bayR * Math.cos(Math.PI / 8);
+        const LD = 3.5 - backZ, LZc = (3.5 + backZ) / 2;
+        box(house, 4.4, 6.0, LD, wallMat, LX, 3.0, LZc);
+        box(house, 4.6, 0.5, LD, stoneMat, LX, 0.25, LZc);
+        box(house, 4.6, 0.22, LD, woodTrimMat, LX, 3.0, LZc);
+        box(house, 5.0, 0.3, LD + 0.6, darkRoofMat, LX, 6.1, LZc);
+        
+        const leftRoof = createHipRoof(11.2 + (LD - 10), 5.6, 2.2, 5.6 + (LD - 10), greenRoofMat);
+        leftRoof.rotation.y = Math.PI / 2;
+        leftRoof.position.set(LX, 6.25, LZc);
+        house.add(leftRoof);
+
+        const TR = 2.4;
+        const TX = LX, TZ = 5.2 - TR * Math.cos(Math.PI / 8); // 左の塔を少し前面に張り出し
+        octa(TR, TR, 6.4, wallMat, TX, 3.2, TZ);
+        octa(TR + 0.1, TR + 0.15, 0.5, stoneMat, TX, 0.25, TZ);
+        octa(TR + 0.1, TR + 0.1, 0.22, woodTrimMat, TX, 3.0, TZ);
+        octa(TR + 0.3, TR + 0.3, 0.3, darkRoofMat, TX, 6.45, TZ);
+
+        [-1, 0, 1].forEach(k => {
+            const ang = k * Math.PI / 4;
+            facetPlane(TX, TZ, TR, ang, 1.6, 1.4, 2.0, gridWinMat);
+        });
+        [-1, 0, 1].forEach(k => {
+            const ang = k * Math.PI / 4;
+            facetPlane(TX, TZ, TR, ang, 3.9, 1.05, 1.4, archWinMat);
+        });
+
+        // 左塔の円錐屋根
+        const leftConeRoof = new THREE.Mesh(new THREE.ConeGeometry(TR + 0.5, 6.0, 8), greenRoofMat);
+        leftConeRoof.rotation.y = Math.PI / 8;
+        leftConeRoof.position.set(TX, 6.6 + 3.0, TZ);
+        house.add(leftConeRoof);
+
+        // 𝄋 左塔の丸窓（セレーニョ記号〇＆）を屋根部分（Y=8.2）に配置
+        const roofY = 8.2;
+        const roofR_at_Y = (TR + 0.5) * (1 - (roofY - 6.6) / 6.0);
+        const roofZ = TZ + roofR_at_Y + 0.05;
+
+        const segnoWinMesh = cyl(house, 0.65, 0.65, 0.1, 24, segnoWindowMat, TX, roofY, roofZ);
+        segnoWinMesh.rotation.x = Math.PI / 2;
+
+        const segnoRing = new THREE.Mesh(new THREE.TorusGeometry(0.67, 0.07, 8, 28), woodTrimMat);
+        segnoRing.position.set(TX, roofY, roofZ + 0.03);
+        house.add(segnoRing);
+
+        const horn = new THREE.Group();
+        cyl(horn, 0.17, 0.17, 4.2, 14, goldMat, 0, 2.1, 0);
+        const bell = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.2, 1.5, 24, 1, true), goldDoubleMat);
+        bell.position.set(0, 4.85, 0);
+        horn.add(bell);
+        horn.position.set(TX - 2.22 - 0.35, 4.2, TZ - 0.3);
+        horn.rotation.z = 0.1;
+        house.add(horn);
+
+        for (let i = 0; i < 22; i++) {
+            const s = 0.2 + 0.1 * Math.abs(Math.sin(i * 1.7));
+            const leaf = new THREE.Mesh(new THREE.SphereGeometry(s, 8, 6), ivyMat);
+            leaf.position.set(TX - 2.1 + Math.sin(i * 2.3) * 0.3, 0.5 + i * 0.27, TZ + 0.6 + Math.cos(i * 1.3) * 1.4);
+            house.add(leaf);
+        }
+
+        const VZ = backZ;
+        plane(house, 4.0, 5.6, gridWinMat, LX, 3.2, VZ - 0.03, Math.PI);
+        [-1.8, -0.6, 0.6, 1.8].forEach(x => {
+            box(house, 0.12, 6.0, 0.1, woodTrimMat, LX + x, 3.2, VZ - 0.06);
+        });
+
+        // 5. 右側：ハーフティンバー破風棟＋右翼（前面に少し張り出し RZ1: 4.4 → 5.2）
+        const RX = 8.2, RW = 6.0, RZ0 = -6.5, RZ1 = 5.2; // 右の棟を少し前面に張り出し
+        const RD = RZ1 - RZ0, RCZ = (RZ0 + RZ1) / 2;
+        box(house, RW, 6.2, RD, wallMat, RX, 3.1, RCZ);
+        box(house, RW + 0.2, 0.5, RD, stoneMat, RX, 0.25, RCZ);
+        box(house, RW + 0.2, 0.2, RD, woodTrimMat, RX, 3.0, RCZ);
+        box(house, RW + 0.4, 0.25, RD + 0.4, darkRoofMat, RX, 6.2, RCZ);
+
+        const rise = FRONT_RIDGE_Y - 6.2; // 棟高を正面棟(8.65)に合わせる
+        const gableH = 6.2 + rise;
+        plane(house, RW, gableH, gableFrontMat, RX, gableH / 2, RZ1 + 0.02);
+
+        const half = RW / 2, ov = 0.4;
+        const slopeAng = Math.atan2(rise, half);
+        const slopeLen = Math.hypot(half + ov, (half + ov) * rise / half);
+        const eaveY = 6.2 - ov * rise / half;
+        [-1, 1].forEach(s => {
+            const g = new THREE.Group();
+            g.position.set(RX + s * (half + ov), eaveY, RCZ);
+            g.rotation.z = -s * slopeAng;
+            const sl = new THREE.Mesh(new THREE.PlaneGeometry(slopeLen, RD + 1.0), greenRoofMat);
+            sl.rotation.x = -Math.PI / 2;
+            sl.position.x = -s * slopeLen / 2;
+            g.add(sl);
+            house.add(g);
+        });
+
+        const gableShape = new THREE.Shape();
+        gableShape.moveTo(-half, 0);
+        gableShape.lineTo(half, 0);
+        gableShape.lineTo(0, rise);
+        const backGable = new THREE.Mesh(new THREE.ShapeGeometry(gableShape), wallDoubleMat);
+        backGable.position.set(RX, 6.2, RZ0 + 0.01);
+        house.add(backGable);
+
+        cyl(house, 0.03, 0.09, 3.2, 8, goldMat, RX, 6.2 + rise + 1.6, RZ1 + 0.5);
+        const spireBall = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), goldMat);
+        spireBall.position.set(RX, 6.2 + rise, RZ1 + 0.5);
+        house.add(spireBall);
+
+        const balconyD = RZ0 - backZ;
+        const balconyZ = RZ0 - balconyD / 2;
+        
+        box(house, 5.8, 3.0, balconyD, wallMat, RX, 1.5, balconyZ);
+        box(house, 6.0, 0.5, balconyD + 0.2, stoneMat, RX, 0.25, balconyZ);
+        
+        [-1.6, 0, 1.6].forEach(x => {
+            plane(house, 1.5, 2.2, gridWinMat, RX + x, 1.5, backZ - 0.01, Math.PI);
+        });
+        [-2.4, -0.8, 0.8, 2.4].forEach(x => { 
+            box(house, 0.16, 2.9, 0.16, woodTrimMat, RX + x, 1.45, backZ - 0.01);
+        });
+
+        box(house, 6.0, 0.2, balconyD + 0.2, woodTrimMat, RX, 3.0, balconyZ);
+
+        [-1.6, 0, 1.6].forEach(x => {
+            plane(house, 1.4, 2.1, gridWinMat, RX + x, 4.5, RZ0 - 0.01, Math.PI);
+        });
+        [-2.4, -0.8, 0.8, 2.4].forEach(x => { 
+            box(house, 0.16, 3.0, 0.1, woodTrimMat, RX + x, 4.6, RZ0 - 0.01);
+        });
+
+        for (let i = 0; i < 6; i++) {
+            const x = RX - 2.5 + i * 1.0;
+            cyl(house, 0.08, 0.09, 2.9, 10, woodTrimMat, x, 4.5, backZ);
+        }
+        plane(house, 5.4, 0.8, railingSmallMat, RX, 3.5, backZ);
+        const shed = box(house, 6.2, 0.14, balconyD + 0.4, greenRoofMat, RX, 6.0, balconyZ);
+        shed.rotation.x = -0.12;
+
+        // 🚪 連絡通路
+        {
+            const lz0 = -3.95, lz1 = bayZ + bayR * Math.cos(Math.PI / 8) - 0.1;
+            const lzc = (lz0 + lz1) / 2, lLen = Math.abs(lz0 - lz1), lw = 1.8, lh = 6.0;
+            box(house, lw, lh, lLen, wallMat, 0, lh / 2, lzc);
+            box(house, lw + 0.2, 0.5, lLen, stoneMat, 0, 0.25, lzc);
+            box(house, lw + 0.2, 0.22, lLen, woodTrimMat, 0, 3.0, lzc);
+            box(house, lw + 0.4, 0.3, lLen, darkRoofMat, 0, 6.1, lzc);
+            [1, -1].forEach(sg => {
+                [1.75, 4.5].forEach(wy => plane(house, 1.0, 1.7, archWinMat, sg * (lw / 2 + 0.13), wy, lzc, sg > 0 ? Math.PI / 2 : -Math.PI / 2));
+            });
+            const rise = 1.4, ovh = 0.35, y0 = 6.25, xe = lw / 2 + ovh;
+            const P = [[xe, y0, lz0], [xe, y0, lz1], [0, y0 + rise, lz1], [0, y0 + rise, lz0],
+                       [-xe, y0, lz0], [-xe, y0, lz1]];
+            const pos = [];
+            const tri = (a, b, c) => pos.push(...P[a], ...P[b], ...P[c]);
+            tri(0, 1, 2); tri(0, 2, 3);
+            tri(4, 3, 2); tri(4, 2, 5);
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            g.computeVertexNormals();
+            house.add(new THREE.Mesh(g, greenRoofMat));
+        }
+
+        // 6. 外構（弧状の塀・門・芝生）
+        const lawn = new THREE.Mesh(new THREE.PlaneGeometry(42, 38), new THREE.MeshPhongMaterial({ color: 0x5a8241 }));
+        lawn.rotation.x = -Math.PI / 2;
+        lawn.position.set(0, -0.02, 1);
+        house.add(lawn);
+
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 16.5), new THREE.MeshPhongMaterial({ color: 0x8a7a8c }));
+        road.rotation.x = -Math.PI / 2;
+        road.position.set(0, -0.01, 11.75); // z=3.5〜20.0（芝生の端＝塀の外まで）
+        house.add(road);
+
+        [-1, 1].forEach(s => {
+            const x = s * 4.6;
+            box(house, 0.9, 3.0, 0.9, wallMat, x, 1.5, 17);
+            box(house, 1.1, 0.25, 1.1, woodTrimMat, x, 3.1, 17);
+            
+            const curvedWall = createCurvedWallGroup(wallMat, stoneMat);
+            curvedWall.position.set(x + s * 5.45, 0, 17);
+            if (s < 0) curvedWall.rotation.y = Math.PI;
+            house.add(curvedWall);
+            
+            const leafX = x - s * 0.7;
+            box(house, 0.06, 0.08, 2.6, ironMat, leafX, 0.3, 18.4);
+            box(house, 0.06, 0.08, 2.6, ironMat, leafX, 2.0, 18.4);
+            for (let i = 0; i < 7; i++) {
+                box(house, 0.05, 2.1, 0.05, ironMat, leafX, 1.15, 17.2 + i * 0.4);
+            }
+        });
+
+        // 🏺 瓢箪型の噴水
+        const createGourdShape = (c1x, r1, c2x, r2, rw, inset = 0) => {
+            const R1 = r1 - inset, R2 = r2 - inset, RW = rw + inset;
+            const D = c2x - c1x, A = r1 + rw, B = r2 + rw;
+            const xr = (A * A - B * B + D * D) / (2 * D);
+            const yr = Math.sqrt(A * A - xr * xr);
+            const tx = c1x + xr;
+            const th1 = Math.atan2(yr, xr);
+            const th2 = Math.atan2(yr, tx - c2x);
+            const ph1 = Math.atan2(yr, c1x - tx);
+            const ph2 = Math.atan2(yr, c2x - tx);
+            const pts = [];
+            const arc = (cx, cy, r, a0, a1, n) => {
+                for (let i = 0; i <= n; i++) {
+                    const a = a0 + (a1 - a0) * i / n;
+                    pts.push(new THREE.Vector2(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
+                }
+            };
+            arc(c1x, 0, R1, th1, 2 * Math.PI - th1, 36);
+            arc(tx, -yr, RW, ph1, ph2, 12);
+            arc(c2x, 0, R2, -th2, th2, 30);
+            arc(tx, yr, RW, -ph2, -ph1, 12);
+            return new THREE.Shape(pts);
+        };
+        const gourdC1 = -1.1, gourdC2 = 1.4, gourdR1 = 1.45, gourdR2 = 1.15, gourdRW = 0.9;
+        const fountainGroup = new THREE.Group();
+        const basin = new THREE.Mesh(
+            new THREE.ExtrudeGeometry(createGourdShape(gourdC1, gourdR1, gourdC2, gourdR2, gourdRW, 0), { depth: 0.6, bevelEnabled: false }),
+            stoneMat
+        );
+        basin.rotation.x = -Math.PI / 2;
+        fountainGroup.add(basin);
+        const water = new THREE.Mesh(
+            new THREE.ExtrudeGeometry(createGourdShape(gourdC1, gourdR1, gourdC2, gourdR2, gourdRW, 0.3), { depth: 0.1, bevelEnabled: false }),
+            glassMat
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = 0.53;
+        fountainGroup.add(water);
+
+        const statueGroup = new THREE.Group();
+        const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1.2, 12), stoneMat);
+        pedestal.position.y = 1.0;
+        statueGroup.add(pedestal);
+        const upperBowl = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.3, 0.3, 16), stoneMat);
+        upperBowl.position.y = 1.7;
+        statueGroup.add(upperBowl);
+        const harpCenter = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 8, 16), goldMat);
+        harpCenter.position.y = 2.4;
+        statueGroup.add(harpCenter);
+        [-0.2, 0, 0.2].forEach(x => {
+            const str = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.9, 6), goldMat);
+            str.position.set(x, 2.4, 0);
+            statueGroup.add(str);
+        });
+        statueGroup.position.x = gourdC1;
+        fountainGroup.add(statueGroup);
+        fountainGroup.position.set(-11.5, 0, 9.5);
+        house.add(fountainGroup);
+
+        // 🌸 花のアーチ
+        const flowerArch = new THREE.Group();
+        const archHalfW = 1.3, archPostH = 2.3;
+        const archPinkMat = new THREE.MeshPhongMaterial({ color: 0xf4a6c0 });
+        const archWhiteMat = new THREE.MeshPhongMaterial({ color: 0xfdf6f0 });
+        const archPurpleMat = new THREE.MeshPhongMaterial({ color: 0xd8a8e8 });
+        const archFlowerMats = [archPinkMat, archWhiteMat, archPurpleMat];
+        [-1, 1].forEach(sx => {
+            const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, archPostH, 8), whiteMat);
+            post.position.set(sx * archHalfW, archPostH / 2, 0);
+            flowerArch.add(post);
+        });
+        const archTop = new THREE.Mesh(new THREE.TorusGeometry(archHalfW, 0.07, 8, 28, Math.PI), whiteMat);
+        archTop.position.set(0, archPostH, 0);
+        flowerArch.add(archTop);
+
+        for (let i = 0; i < 70; i++) {
+            const t = i / 69;
+            let px, py;
+            if (t < 0.2) { px = -archHalfW; py = (t / 0.2) * archPostH; }
+            else if (t > 0.8) { px = archHalfW; py = (1 - (t - 0.8) / 0.2) * archPostH; }
+            else { const a = Math.PI * (1 - (t - 0.2) / 0.6); px = Math.cos(a) * archHalfW; py = archPostH + Math.sin(a) * archHalfW; }
+            const pz = Math.sin(i * 2.7) * 0.12;
+            const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.13 + 0.05 * Math.abs(Math.sin(i * 1.3)), 8, 6), ivyMat);
+            leaf.position.set(px + Math.sin(i * 1.9) * 0.08, py, pz);
+            flowerArch.add(leaf);
+            if (i % 2 === 0) {
+                const fl = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), archFlowerMats[(i / 2) % 3]);
+                fl.position.set(px + Math.sin(i * 3.1) * 0.12, py + 0.06, pz + (pz >= 0 ? 0.08 : -0.08));
+                flowerArch.add(fl);
+            }
+        }
+        flowerArch.position.set(-15.5, 0, 5.8);
+        house.add(flowerArch);
+
+        const wellGroup = new THREE.Group();
+        const wellBase = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 0.8, 12), stoneMat);
+        wellBase.position.y = 0.4;
+        wellGroup.add(wellBase);
+        const wellHole = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.1, 12), new THREE.MeshBasicMaterial({ color: 0x111122 }));
+        wellHole.position.y = 0.76;
+        wellGroup.add(wellHole);
+        const archL = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 8), darkRoofMat);
+        archL.position.set(-0.6, 1.2, 0);
+        wellGroup.add(archL);
+        const archR = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 8), darkRoofMat);
+        archR.position.set(0.6, 1.2, 0);
+        wellGroup.add(archR);
+        const wellArchTop = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.06, 0.06), darkRoofMat);
+        wellArchTop.position.set(0, 2.0, 0);
+        wellGroup.add(wellArchTop);
+        const pulley = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.03, 8, 16), goldMat);
+        pulley.position.set(0, 1.85, 0);
+        wellGroup.add(pulley);
+        const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.3, 10), woodTrimMat);
+        bucket.position.set(0.2, 0.9, 0);
+        wellGroup.add(bucket);
+        wellGroup.position.set(-5.5, 0, backZ - 3.4);
+        house.add(wellGroup);
+
+        const benchGroup = new THREE.Group();
+        const benchSeat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.5), woodTrimMat);
+        benchSeat.position.y = 0.4;
+        benchGroup.add(benchSeat);
+        const benchBack = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.08), woodTrimMat);
+        benchBack.position.set(0, 0.65, -0.2);
+        benchGroup.add(benchBack);
+        [-0.7, 0.7].forEach(bx => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.4), darkRoofMat);
+            leg.position.set(bx, 0.2, 0);
+            benchGroup.add(leg);
+        });
+        
+        const benchAng = 3 * Math.PI / 4;
+        const benchDist = 2.6;
+        benchGroup.position.set(bayX + Math.sin(benchAng) * benchDist, 0, bayZ + Math.cos(benchAng) * benchDist);
+        benchGroup.rotation.y = benchAng;
+        house.add(benchGroup);
+
+        const treePositions = [
+            [-14, -10], [-10, -13], [14, -14], [15, -7], [-15, -4]
+        ];
+        treePositions.forEach(([tx, tz]) => {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 3.0, 8), woodTrimMat);
+            trunk.position.y = 1.5;
+            tree.add(trunk);
+            const leaves = new THREE.Mesh(new THREE.ConeGeometry(2.2, 4.5, 8), new THREE.MeshPhongMaterial({ color: 0x3b5e2b }));
+            leaves.position.y = 4.2;
+            tree.add(leaves);
+            tree.position.set(tx, 0, tz);
+            house.add(tree);
+        });
+
+        const leafMats = [0x3b5e2b, 0x4a7a35, 0x2f5a30].map(c => new THREE.MeshPhongMaterial({ color: c }));
+        [[-16, 11, 1.1], [16, 11, 1.1], [-9, 15, 1.3], [9, 15, 1.3], [-15, 14, 1.2], [15, 14, 1.2]].forEach(([tx, tz, s]) => {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * s, 0.35 * s, 2.5 * s, 8), woodTrimMat);
+            trunk.position.y = 1.25 * s;
+            tree.add(trunk);
+            [[0, 3.4, 0, 1.7], [0.9, 3.0, 0.3, 1.25], [-0.8, 3.1, -0.6, 1.3]].forEach(([cx, cy, cz, cr], i) => {
+                const crown = new THREE.Mesh(new THREE.SphereGeometry(cr * s, 12, 10), leafMats[i % 3]);
+                crown.position.set(cx * s, cy * s, cz * s);
+                tree.add(crown);
+            });
+            tree.position.set(tx, 0, tz);
+            house.add(tree);
+        });
+        [[-7, 14.5], [7, 14.5]].forEach(([tx, tz]) => {
+            const shrub = new THREE.Mesh(new THREE.ConeGeometry(0.9, 2.8, 8), leafMats[2]);
+            shrub.position.set(tx, 1.4, tz);
+            house.add(shrub);
+        });
+
+        house.position.set(0, 0, -6.5);
+        house.scale.set(0.85, 0.85, 0.85);
+
+        return house;
+    }
+
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 1000);
+        camera.rotation.order = 'YXZ';
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 2.5));
+        scene.add(new THREE.GridHelper(200, 400, 0xeeeeee, 0xf5f5f5));
+
+        houseGroup = createHouse();
+        scene.add(houseGroup);
+        buildStaticColliders();
+
+        walkGroup = new THREE.Group();
+        scene.add(walkGroup);
+
+        setupControls();
+
+        window.addEventListener('resize', onWindowResize);
+        window.updateScene = updateScene;
+        window.addPerson = addPerson;
+        window.removePerson = removePerson;
+        window.changeView = changeView;
+        window.setExploreAvatar = setExploreAvatar;
+        window.toggleExplore = () => changeView(currentView === 'explore' ? '3rd' : 'explore');
+        window.togglePanel = () => {
+            const panel = document.getElementById('ui-panel');
+            const text = document.getElementById('toggle-text');
+            panel.classList.toggle('collapsed');
+            text.innerText = panel.classList.contains('collapsed') ? '開く' : '閉じる';
+        };
+
+        updateScene();
+        animate();
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function addPerson() {
+        const container = document.getElementById('input-container');
+        const count = Date.now();
+        const indexLabel = container.children.length;
+        const charLabel = String.fromCharCode(65 + indexLabel);
+        
+        const div = document.createElement('div');
+        div.className = 'input-group group-default';
+        div.id = `group-${count}`;
+        div.innerHTML = `
+            <button class="remove-btn" onclick="removePerson('group-${count}')">×</button>
+            <div class="section-header"><strong>${charLabel}</strong></div>
+            <div class="input-row">
+                <div class="input-item"><span class="hint">名前</span><input type="text" class="name-input" placeholder="名前${charLabel}" oninput="updateScene()"></div>
+                <div class="input-item" style="flex: 0.9;"><span class="hint">性別</span><select class="gender-input" onchange="updateScene()"><option value="male">男</option><option value="female">女</option><option value="shoebill">ハシビロコウ</option><option value="pygmy">コビトカバ</option></select></div>
+            </div>
+            <div class="input-row">
+                <div class="input-item"><span class="hint">身長 (cm)</span><input type="number" class="height-input" value="165.0" step="0.1" oninput="updateScene()"></div>
+                <div class="input-item" style="flex: 0.35;"><span class="hint">色</span><input type="color" class="color-input color-picker" value="#cccccc" oninput="updateScene()"></div>
+            </div>
+        `;
+        container.appendChild(div);
+        updateScene();
+    }
+
+    function removePerson(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.remove();
+            const groups = document.querySelectorAll('.input-group');
+            groups.forEach((g, i) => {
+                g.querySelector('.section-header strong').innerText = String.fromCharCode(65 + i);
+            });
+            updateScene();
+        }
+    }
+
+    const FIXED_HEIGHTS = { shoebill: 120.0, pygmy: 80.0 };
+
+    function createAnimalMannequin(color, heightCm, kind, name, index) {
+        const group = new THREE.Group();
+        const h = heightCm * 0.01;
+        const bodyMat = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.85 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+        const darkMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+        const ell = (rx, ry, rz, mat, x, y, z) => {
+            const m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 16), mat);
+            m.scale.set(rx, ry, rz);
+            m.position.set(x, y, z);
+            group.add(m);
+            return m;
+        };
+        const cylM = (r, len, mat, x, y, z) => {
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), mat);
+            m.position.set(x, y, z);
+            group.add(m);
+            return m;
+        };
+        let width;
+
+        if (kind === 'shoebill') {
+            const beakMat = new THREE.MeshPhongMaterial({ color: 0xc9b27a });
+            const legH = h * 0.34;
+            [-1, 1].forEach(side => {
+                cylM(h * 0.014, legH, darkMat, side * h * 0.06, legH / 2, 0);
+                const foot = new THREE.Mesh(new THREE.BoxGeometry(h * 0.07, h * 0.015, h * 0.14), darkMat);
+                foot.position.set(side * h * 0.06, h * 0.0075, h * 0.04);
+                group.add(foot);
+            });
+            ell(h * 0.14, h * 0.24, h * 0.11, bodyMat, 0, h * 0.52, 0);
+            [-1, 1].forEach(side => {
+                const wing = ell(h * 0.035, h * 0.2, h * 0.09, bodyMat, side * h * 0.14, h * 0.52, -h * 0.01);
+                wing.rotation.z = side * 0.06;
+            });
+            const tail = ell(h * 0.05, h * 0.03, h * 0.12, bodyMat, 0, h * 0.34, -h * 0.13);
+            tail.rotation.x = -0.4;
+            cylM(h * 0.045, h * 0.2, bodyMat, 0, h * 0.77, h * 0.02);
+            ell(h * 0.085, h * 0.1, h * 0.095, bodyMat, 0, h * 0.9, h * 0.03);
+            ell(h * 0.075, h * 0.085, h * 0.13, beakMat, 0, h * 0.86, h * 0.13);
+            [-1, 1].forEach(side => {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(h * 0.014, 10, 10), eyeMat);
+                eye.position.set(side * h * 0.07, h * 0.92, h * 0.08);
+                group.add(eye);
+            });
+            width = h * 0.32;
+        } else {
+            const rx = h * 0.36, ry = h * 0.34, rz = h * 0.8;
+            ell(rx, ry, rz, bodyMat, 0, h - ry, 0);
+            [-1, 1].forEach(sx => [-1, 1].forEach(sz => {
+                cylM(h * 0.09, h * 0.42, bodyMat, sx * h * 0.2, h * 0.21, sz * h * 0.45);
+            }));
+            ell(h * 0.2, h * 0.18, h * 0.27, bodyMat, 0, h * 0.62, h * 0.85);
+            ell(h * 0.17, h * 0.13, h * 0.15, bodyMat, 0, h * 0.54, h * 1.08);
+            [-1, 1].forEach(side => {
+                ell(h * 0.045, h * 0.06, h * 0.03, bodyMat, side * h * 0.12, h * 0.8, h * 0.76);
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(h * 0.025, 10, 10), eyeMat);
+                eye.position.set(side * h * 0.17, h * 0.7, h * 0.92);
+                group.add(eye);
+            });
+            const tail = new THREE.Mesh(new THREE.CylinderGeometry(h * 0.02, h * 0.03, h * 0.18, 8), bodyMat);
+            tail.position.set(0, h * 0.78, -h * 0.84);
+            tail.rotation.x = -0.6;
+            group.add(tail);
+            width = h * 0.8;
+        }
+
+        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+        const ctx = canvas.getContext('2d'); ctx.font = "bold 45px sans-serif"; ctx.fillStyle = "#333"; ctx.textAlign = "center";
+        const charLabel = String.fromCharCode(65 + index);
+        const displayName = name || charLabel;
+        ctx.fillText(`${displayName} (${heightCm.toFixed(1)}cm)`, 256, 64);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(1.5, 0.38, 1);
+        sprite.position.y = h + 0.3;
+        group.add(sprite);
+
+        group.userData = { height: h, width: width, eye: kind === 'shoebill' ? { y: h * 0.92, z: h * 0.1 } : { y: h * 0.7, z: h * 0.95 }, kind: kind };
+        return group;
+    }
+
+    function createMannequin(color, heightCm, gender, name, index) {
+        if (FIXED_HEIGHTS[gender]) return createAnimalMannequin(color, heightCm, gender, name, index);
+        const group = new THREE.Group();
+        const h = heightCm * 0.01;
+        const bodyMat = new THREE.MeshPhongMaterial({ color: color, transparent: true, opacity: 0.85 });
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+
+        const headH = h * 0.13, neckH = h * 0.05, torsoH = h * 0.37, legH = h * 0.45;
+        const eyeY = h * (gender === 'male' ? 0.904 : 0.903);
+        const torsoW = (gender === 'male' ? 0.26 : 0.21) * (h/1.7);
+        const torsoDepth = torsoW * 0.5;
+
+        const headBox = new THREE.Group(); headBox.position.y = eyeY;
+        const head = new THREE.Mesh(new THREE.SphereGeometry(headH * 0.8, 16, 16), bodyMat);
+        head.position.y = (h - headH * 0.5) - eyeY; headBox.add(head);
+        [-1, 1].forEach(side => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(headH * 0.12, 12, 12), eyeMat);
+            eye.position.set(side * (headH * 0.28), 0, (headH * 0.7)); headBox.add(eye);
+        });
+        group.add(headBox);
+
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(headH*0.3, headH*0.3, neckH, 16), bodyMat);
+        neck.position.y = h - headH - (neckH * 0.5); group.add(neck);
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(torsoW, torsoH, torsoDepth), bodyMat);
+        torso.position.y = legH + (torsoH * 0.5); group.add(torso);
+
+        [-1, 1].forEach(side => {
+            const anchor = new THREE.Group();
+            anchor.position.set(side * (torsoW * 0.6), legH + torsoH - (torsoW*0.15), 0);
+            const armLen = h * 0.38;
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(torsoW*0.3, armLen, torsoW*0.3), bodyMat);
+            mesh.position.y = -armLen * 0.5; anchor.add(mesh); group.add(anchor);
+            anchor.rotation.z = side * (5 * Math.PI / 180);
+        });
+
+        [-1, 1].forEach(side => {
+            const anchor = new THREE.Group(); anchor.position.set(side * (torsoW * 0.25), legH, 0);
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(torsoW*0.4, legH, torsoW*0.4), bodyMat);
+            mesh.position.y = -legH * 0.5; anchor.add(mesh); group.add(anchor);
+        });
+
+        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+        const ctx = canvas.getContext('2d'); ctx.font = "bold 45px sans-serif"; ctx.fillStyle = "#333"; ctx.textAlign = "center";
+        const charLabel = String.fromCharCode(65 + index);
+        const displayName = name || charLabel;
+        ctx.fillText(`${displayName} (${heightCm.toFixed(1)}cm)`, 256, 64);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(1.5, 0.38, 1); 
+        sprite.position.y = h + 0.3; 
+        group.add(sprite);
+
+        group.userData = { height: h, width: torsoW * 1.5, eye: { y: eyeY, z: headH * 0.7 }, kind: gender };
+        return group;
+    }
+
+    function updateScene() {
+        while(walkGroup.children.length > 0){ walkGroup.remove(walkGroup.children[0]); }
+        
+        const groups = document.querySelectorAll('.input-group');
+        let maxHeight = 0;
+        let maxWidth = 0;
+
+        const mannequins = [];
+        groups.forEach((group, index) => {
+            const name = group.querySelector('.name-input').value;
+            const gender = group.querySelector('.gender-input').value;
+            const heightInput = group.querySelector('.height-input');
+            if (FIXED_HEIGHTS[gender]) {
+                heightInput.value = FIXED_HEIGHTS[gender].toFixed(1);
+                heightInput.disabled = true;
+            } else {
+                heightInput.disabled = false;
+            }
+            const height = parseFloat(heightInput.value) || 160;
+            const color = group.querySelector('.color-input').value;
+
+            const mannequin = createMannequin(color, height, gender, name, index);
+            mannequins.push(mannequin);
+            
+            if (height * 0.01 > maxHeight) maxHeight = height * 0.01;
+            if (mannequin.userData.width > maxWidth) maxWidth = mannequin.userData.width;
+        });
+
+        const dynamicDist = Math.max(0.6, maxWidth + 0.2);
+        const totalWidth = (mannequins.length - 1) * dynamicDist;
+
+        mannequins.forEach((mannequin, index) => {
+            mannequin.position.x = (index * dynamicDist) - (totalWidth / 2);
+            walkGroup.add(mannequin);
+        });
+
+        currentMannequins = mannequins;
+        walkGroup.userData.totalWidth = totalWidth;
+        rebuildPersonColliders();
+        syncViewButtons();
+
+        walkGroup.userData.maxHeight = maxHeight;
+        if(!isDragging) {
+            targetCamDist = Math.max(3, (totalWidth * 0.8) + 2);
+            camDist = targetCamDist;
+        }
+    }
+
+    // ----- 当たり判定 -----
+    function toCollider(b, owner = -1) {
+        return { owner, minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z, minY: b.min.y, maxY: b.max.y };
+    }
+
+    // 家・庭の各メッシュから、地面の上に立つ障害物だけを箱型の当たり判定にする
+    function buildStaticColliders() {
+        staticColliders = [];
+        houseGroup.updateMatrixWorld(true);
+        const box = new THREE.Box3(), size = new THREE.Vector3();
+        const skipTypes = ['PlaneGeometry', 'ShapeGeometry', 'TorusGeometry'];
+        houseGroup.traverse(o => {
+            if (!o.isMesh || skipTypes.includes(o.geometry.type)) return;
+            box.setFromObject(o);
+            if (box.max.y <= 0.3) return;   // 頭上の屋根や低い段差は通れる
+            box.getSize(size);
+            if (o.geometry.type === 'SphereGeometry' && Math.max(size.x, size.z) < 0.6) return; // 葉・花の飾り
+            staticColliders.push(toCollider(box));
+        });
+        colliders = staticColliders.concat(personColliders);
+    }
+
+    function rebuildPersonColliders() {
+        personColliders = [];
+        walkGroup.updateMatrixWorld(true);
+        currentMannequins.forEach((m, idx) => {
+            const b = new THREE.Box3();
+            m.traverse(o => { if (o.isMesh) b.expandByObject(o); });
+            if (!b.isEmpty()) personColliders.push(toCollider(b, idx));
+        });
+        colliders = staticColliders.concat(personColliders);
+    }
+
+    // 探索に使うマネキン（目の高さ・体の太さ・頭の当たる高さ）
+    function getAvatar() {
+        const m = currentMannequins[exploreAvatar];
+        if (!m) return { eyeH: 1.6, r: 0.3, top: MAX_TOP, canFly: false };
+        const eye = m.userData.eye.y;
+        return {
+            eyeH: eye,
+            r: Math.max(0.2, Math.min(0.4, m.userData.width / 2)),
+            top: Math.min(eye, MAX_TOP),
+            canFly: m.userData.kind === 'shoebill'
+        };
+    }
+
+    function resolveCollisions(p, R, top, owner, fly) {
+        for (let it = 0; it < 3; it++) {
+            for (const c of colliders) {
+                if (c.owner === owner) continue;                       // 自分自身には当たらない
+                const topAbs = fly ? p.y + top : top;                  // 歩行：頭上は通れる / 飛行：体の上端
+                const bottom = fly ? p.y : p.y + 0.3;                  // 歩行：低い物はジャンプで越えられる
+                if (c.minY >= topAbs || c.maxY <= bottom) continue;
+                const cx = Math.max(c.minX, Math.min(p.x, c.maxX));
+                const cz = Math.max(c.minZ, Math.min(p.z, c.maxZ));
+                const dx = p.x - cx, dz = p.z - cz;
+                const d2 = dx * dx + dz * dz;
+                if (d2 >= R * R) continue;
+                if (d2 > 1e-9) {
+                    const d = Math.sqrt(d2);
+                    p.x = cx + dx / d * R;
+                    p.z = cz + dz / d * R;
+                } else {
+                    const l = p.x - c.minX, r = c.maxX - p.x, t = p.z - c.minZ, bt = c.maxZ - p.z;
+                    const m = Math.min(l, r, t, bt);
+                    if (m === l) p.x = c.minX - R;
+                    else if (m === r) p.x = c.maxX + R;
+                    else if (m === t) p.z = c.minZ - R;
+                    else p.z = c.maxZ + R;
+                }
+            }
+        }
+    }
+
+    function toggleFlight() {
+        if (currentView !== 'explore' || !getAvatar().canFly) return;
+        flying = !flying;
+        if (flying) player.vy = 3;
+        syncViewButtons();
+    }
+
+    function updateExplore(dt) {
+        const av = getAvatar();
+        if (!av.canFly && flying) { flying = false; syncViewButtons(); }
+
+        let f = ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0) - joy.y;
+        let s = ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0) + joy.x;
+        const len = Math.hypot(f, s);
+        if (len > 1) { f /= len; s /= len; }
+        if (len > 0.01) {
+            const speed = WALK_SPEED * ((keys.ShiftLeft || keys.ShiftRight) ? RUN_MULT : 1) * (flying ? 1.5 : 1) * dt;
+            const sy = Math.sin(look.yaw), cy = Math.cos(look.yaw);
+            player.x += (-sy * f + cy * s) * speed;
+            player.z += (-cy * f - sy * s) * speed;
+        }
+
+        if (flying) {
+            // 飛行：上昇（Space / 上昇ボタン）・下降（C / 下降ボタン）
+            const up = jumpHeld || keys.Space, down = flyDownHeld || keys.KeyC;
+            const target = ((up ? 1 : 0) - (down ? 1 : 0)) * FLY_V;
+            player.vy += (target - player.vy) * Math.min(1, dt * 8);
+            player.y = Math.min(MAX_ALT, player.y + player.vy * dt);
+            jumpQueued = false;
+            if (player.y <= 0) {
+                player.y = 0; player.vy = 0;
+                if (down) { flying = false; syncViewButtons(); }   // 地面まで降りたら着地
+            }
+        } else {
+            // ジャンプ
+            if ((jumpQueued || jumpHeld || keys.Space) && player.y <= 0.0001) player.vy = JUMP_V;
+            jumpQueued = false;
+            player.vy -= GRAVITY * dt;
+            player.y += player.vy * dt;
+            if (player.y <= 0) { player.y = 0; player.vy = 0; }
+        }
+
+        resolveCollisions(player, av.r, av.top, exploreAvatar, flying);
+        player.x = Math.max(-45, Math.min(45, player.x));
+        player.z = Math.max(-45, Math.min(45, player.z));
+    }
+
+    // ----- 視点切り替え -----
+    function resetJoystick() {
+        joy.id = null; joy.x = 0; joy.y = 0;
+        jumpHeld = false; jumpQueued = false; flyDownHeld = false;
+        const knob = document.getElementById('joy-knob');
+        if (knob) knob.style.transform = '';
+        ['jump-btn', 'fly-btn', 'down-btn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('pressed');
+        });
+    }
+
+    // 選んだマネキンの立っている場所に移動して、その人になって歩き始める
+    function spawnAtAvatar() {
+        const m = currentMannequins[exploreAvatar];
+        player.x = m ? m.position.x : 0;
+        player.z = m ? m.position.z : 3;
+        player.y = 0; player.vy = 0;
+        flying = false;
+        look.yaw = Math.PI; look.pitch = 0;
+    }
+
+    function setExploreAvatar(i) {
+        exploreAvatar = i;
+        spawnAtAvatar();
+        resetJoystick();
+        syncViewButtons();
+    }
+
+    function changeView(v) {
+        const ae = document.activeElement;
+        if (ae && ae.tagName === 'BUTTON') ae.blur();   // Spaceでボタンが押されないように
+        currentView = v;
+        flying = false;
+        if (typeof v === 'number') {
+            look.yaw = Math.PI; look.pitch = 0;      // その人の向いている方向（+Z）
+        } else if (v === 'explore') {
+            exploreAvatar = Math.min(exploreAvatar, Math.max(0, currentMannequins.length - 1));
+            spawnAtAvatar();
+            // スマホでは操作パネルが画面を覆うので自動で閉じる
+            if (window.innerWidth <= 480 && !document.getElementById('ui-panel').classList.contains('collapsed')) {
+                window.togglePanel();
+            }
+        }
+        resetJoystick();
+        syncViewButtons();
+    }
+
+    // ボタンに表示する名前（未入力ならA, B, C…）
+    function personLabel(i) {
+        const g = document.querySelectorAll('.input-group')[i];
+        const nm = g ? g.querySelector('.name-input').value.trim() : '';
+        if (!nm) return String.fromCharCode(65 + i);
+        const ch = Array.from(nm);
+        return ch.length > 6 ? ch.slice(0, 6).join('') + '…' : nm;
+    }
+
+    function syncViewButtons() {
+        const n = document.querySelectorAll('.input-group').length;
+        if (typeof currentView === 'number' && currentView >= n) currentView = '3rd';
+        if (exploreAvatar >= n) exploreAvatar = Math.max(0, n - 1);
+
+        const labels = [];
+        for (let i = 0; i < n; i++) labels.push(personLabel(i));
+        const sig = n + ':' + labels.join('\u0001');
+
+        const wrap = document.getElementById('view-buttons');
+        if (renderedSig !== sig) {
+            renderedSig = sig;
+            const mk = (id, text, fn) => {
+                const b = document.createElement('button');
+                b.id = id; b.className = 'btn-view'; b.textContent = text;
+                b.addEventListener('click', fn);
+                return b;
+            };
+            wrap.replaceChildren(
+                mk('v-3rd', '三人称', () => changeView('3rd')),
+                ...labels.map((L, i) => mk(`v-${i}`, `${L}視点`, () => changeView(i)))
+            );
+            document.getElementById('explore-avatar').replaceChildren(
+                ...labels.map((L, i) => mk(`a-${i}`, L, () => setExploreAvatar(i)))
+            );
+        }
+        wrap.querySelectorAll('.btn-view').forEach(btn => {
+            btn.classList.toggle('active', String(currentView) === btn.id.slice(2));
+        });
+
+        const isExplore = currentView === 'explore';
+        const canFly = isExplore && getAvatar().canFly;
+        document.getElementById('v-explore').classList.toggle('active', isExplore);
+        document.getElementById('explore-avatar-wrap').style.display = isExplore ? 'block' : 'none';
+        document.querySelectorAll('#explore-avatar .btn-view').forEach((btn, i) => {
+            btn.classList.toggle('active', isExplore && i === exploreAvatar);
+        });
+        document.getElementById('joystick').classList.toggle('show', isExplore && isTouch);
+        document.getElementById('jump-btn').classList.toggle('show', isExplore && isTouch);
+        document.getElementById('jump-btn').innerText = flying ? '上昇' : 'ジャンプ';
+        document.getElementById('fly-btn').classList.toggle('show', canFly && isTouch);
+        document.getElementById('fly-btn').innerText = flying ? '🕊 着地' : '🕊 飛ぶ';
+        document.getElementById('down-btn').classList.toggle('show', canFly && flying && isTouch);
+
+        const help = document.getElementById('explore-help');
+        help.style.display = isExplore ? 'block' : 'none';
+        let txt = isTouch
+            ? '左のジョイスティックで移動 / 右のボタンでジャンプ / 画面ドラッグで視点を回す'
+            : 'WASD・矢印キーで移動 / Spaceでジャンプ / Shiftでダッシュ / ドラッグで視点 / Escで終了';
+        if (canFly) {
+            txt += isTouch
+                ? ' / 「飛ぶ」で飛行（上昇・下降ボタンで高さを調整）'
+                : ' / Fで飛行ON・OFF（飛行中は Spaceで上昇、Cで下降）';
+        }
+        help.innerText = txt;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+
+        // 一人称・探索のときは自分の体を隠す
+        const selfIdx = currentView === 'explore' ? exploreAvatar : currentView;
+        currentMannequins.forEach((m, i) => { m.visible = (i !== selfIdx); });
+
+        const fov = currentView === '3rd' ? 50 : 70;
+        if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
+
+        if (typeof currentView === 'number' && !currentMannequins[currentView]) currentView = '3rd';
+
+        if (currentView === '3rd') {
+            const targetY = walkGroup.userData.maxHeight ? walkGroup.userData.maxHeight * 0.5 : 0.8;
+            const centerPos = new THREE.Vector3(0, targetY, 0);
+
+            camDist += (targetCamDist - camDist) * 0.15;
+
+            camera.position.set(
+                centerPos.x + Math.sin(rotation.y) * camDist,
+                centerPos.y + Math.sin(rotation.x) * camDist,
+                centerPos.z + Math.cos(rotation.y) * camDist
+            );
+            camera.lookAt(centerPos);
+        } else if (currentView === 'explore') {
+            updateExplore(dt);
+            camera.position.set(player.x, getAvatar().eyeH + player.y, player.z);
+            camera.rotation.set(look.pitch, look.yaw, 0);
+        } else {
+            const m = currentMannequins[currentView];
+            camera.position.set(m.position.x, m.userData.eye.y, m.position.z + m.userData.eye.z);
+            camera.rotation.set(look.pitch, look.yaw, 0);
+        }
+        renderer.render(scene, camera);
+    }
+
+    function setupControls() {
+        const c = document.getElementById('canvas-container');
+
+        const orbit = (dx, dy) => {
+            rotation.y -= dx * 0.005; rotation.x -= dy * 0.005;
+            rotation.x = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, rotation.x));
+        };
+        const rotateLook = (dx, dy) => {
+            look.yaw -= dx * 0.005;
+            look.pitch = Math.max(-1.45, Math.min(1.45, look.pitch - dy * 0.005));
+        };
+        const move = (dx, dy) => (currentView === '3rd' ? orbit(dx, dy) : rotateLook(dx, dy));
+
+        const zoom = (delta) => {
+            const factor = 1.05;
+            if (delta > 0) targetCamDist *= factor;
+            else targetCamDist /= factor;
+            targetCamDist = Math.max(0.5, Math.min(50, targetCamDist));
+        };
+
+        c.addEventListener('wheel', e => {
+            e.preventDefault();
+            if (currentView === '3rd') zoom(e.deltaY);
+        }, { passive: false });
+
+        c.addEventListener('mousedown', () => isDragging = true);
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', e => { if(isDragging) move(e.movementX, e.movementY); });
+
+        c.addEventListener('touchstart', e => {
+            isDragging = true;
+            if (currentView !== '3rd') {
+                // 一人称・探索：最初に触れた指で視点を回す
+                if (lookTouchId === null) {
+                    const t = e.changedTouches[0];
+                    lookTouchId = t.identifier;
+                    lookPrev = { x: t.clientX, y: t.clientY };
+                }
+                return;
+            }
+            if (e.touches.length === 1) {
+                previousTouch = e.touches[0];
+            } else if (e.touches.length === 2) {
+                initialPinchDist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+            }
+        }, { passive: false });
+
+        const touchEnd = e => {
+            if (lookTouchId !== null) {
+                for (const t of e.changedTouches) {
+                    if (t.identifier === lookTouchId) { lookTouchId = null; isDragging = false; }
+                }
+            }
+            if (currentView === '3rd') {
+                isDragging = false;
+                initialPinchDist = null;
+            }
+        };
+        window.addEventListener('touchend', touchEnd);
+        window.addEventListener('touchcancel', touchEnd);
+
+        window.addEventListener('touchmove', e => {
+            if(!isDragging) return;
+            if (e.cancelable) e.preventDefault();
+
+            if (currentView !== '3rd') {
+                for (const t of e.changedTouches) {
+                    if (t.identifier === lookTouchId) {
+                        rotateLook(t.clientX - lookPrev.x, t.clientY - lookPrev.y);
+                        lookPrev = { x: t.clientX, y: t.clientY };
+                    }
+                }
+                return;
+            }
+
+            if (e.touches.length === 1 && previousTouch) {
+                const touch = e.touches[0];
+                move(touch.clientX - previousTouch.clientX, touch.clientY - previousTouch.clientY);
+                previousTouch = touch;
+            } else if (e.touches.length === 2 && initialPinchDist) {
+                const dist = Math.hypot(
+                    e.touches[0].pageX - e.touches[1].pageX,
+                    e.touches[0].pageY - e.touches[1].pageY
+                );
+
+                const ratio = initialPinchDist / dist;
+                targetCamDist *= ratio;
+                targetCamDist = Math.max(0.5, Math.min(50, targetCamDist));
+                initialPinchDist = dist;
+            }
+        }, { passive: false });
+
+        // ----- キーボード（PC） -----
+        const typing = () => ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement && document.activeElement.tagName);
+        window.addEventListener('keydown', e => {
+            if (typing()) return;
+            if (e.code === 'Escape' && currentView === 'explore') { changeView('3rd'); return; }
+            if (currentView === 'explore' && (e.code.startsWith('Arrow') || e.code === 'Space')) e.preventDefault();
+            if (e.code === 'KeyF' && currentView === 'explore' && !e.repeat) toggleFlight();
+            keys[e.code] = true;
+        });
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+            if (currentView === 'explore' && e.code === 'Space') e.preventDefault();
+        });
+        window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+        // ----- ジョイスティック（スマホ） -----
+        const joyEl = document.getElementById('joystick');
+        const knob = document.getElementById('joy-knob');
+        const joyUpdate = t => {
+            const r = joyEl.getBoundingClientRect();
+            let dx = t.clientX - (r.left + r.width / 2);
+            let dy = t.clientY - (r.top + r.height / 2);
+            const max = r.width / 2 - 12;
+            const len = Math.hypot(dx, dy);
+            if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+            joy.x = dx / max; joy.y = dy / max;
+        };
+        joyEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            const t = e.changedTouches[0];
+            joy.id = t.identifier;
+            joyUpdate(t);
+        }, { passive: false });
+        joyEl.addEventListener('touchmove', e => {
+            e.preventDefault(); e.stopPropagation();
+            for (const t of e.changedTouches) if (t.identifier === joy.id) joyUpdate(t);
+        }, { passive: false });
+        const joyEnd = e => {
+            for (const t of e.changedTouches) if (t.identifier === joy.id) resetJoystick();
+        };
+        joyEl.addEventListener('touchend', joyEnd);
+        joyEl.addEventListener('touchcancel', joyEnd);
+
+        // ----- ジャンプボタン（スマホ） -----
+        const jumpEl = document.getElementById('jump-btn');
+        jumpEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            jumpQueued = true; jumpHeld = true;
+            jumpEl.classList.add('pressed');
+        }, { passive: false });
+        const jumpEnd = e => { e.preventDefault(); jumpHeld = false; jumpEl.classList.remove('pressed'); };
+        jumpEl.addEventListener('touchend', jumpEnd, { passive: false });
+        jumpEl.addEventListener('touchcancel', jumpEnd, { passive: false });
+
+        // ----- 飛ぶ・下降ボタン（ハシビロコウ用） -----
+        const flyEl = document.getElementById('fly-btn');
+        flyEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            flyEl.classList.add('pressed');
+            toggleFlight();
+        }, { passive: false });
+        const flyEnd = e => { e.preventDefault(); flyEl.classList.remove('pressed'); };
+        flyEl.addEventListener('touchend', flyEnd, { passive: false });
+        flyEl.addEventListener('touchcancel', flyEnd, { passive: false });
+
+        const downEl = document.getElementById('down-btn');
+        downEl.addEventListener('touchstart', e => {
+            e.preventDefault(); e.stopPropagation();
+            flyDownHeld = true; downEl.classList.add('pressed');
+        }, { passive: false });
+        const downEnd = e => { e.preventDefault(); flyDownHeld = false; downEl.classList.remove('pressed'); };
+        downEl.addEventListener('touchend', downEnd, { passive: false });
+        downEl.addEventListener('touchcancel', downEnd, { passive: false });
+    }
+
+    init();
+</script>
+</body>
+</html>
